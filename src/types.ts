@@ -51,3 +51,12 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
 }
+
+export interface FinNote {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: number;
+  updatedAt: number;
+  userId: string;
+}

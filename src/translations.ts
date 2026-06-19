@@ -2,10 +2,10 @@ import { AppLanguage } from "./types";
 
 export const translations = {
   ar: {
-    appName: "فـيـنـكـس",
+    appName: "FinX",
     appSubtitle: "FinX",
     onboardingTitle: "مستشارك المالي الذكي",
-    onboardingDesc1: "مرحباً بك في فنيكس (FinX) – بوابتك لبناء ثروة مستدامة باستخدام ذكاء اصطناعي يفهم احتياجاتك بدقة واحترافية.",
+    onboardingDesc1: "مرحباً بك في FinX – بوابتك لبناء ثروة مستدامة باستخدام ذكاء اصطناعي يفهم احتياجاتك بدقة واحترافية.",
     onboardingStep1Title: "كشف فوري لميزانيتك",
     onboardingStep1Desc: "ارفع كشف حسابك البنكي أو أدخل بياناتك يدوياً، وسيقوم محركنا الذكي بتحليل كافة مصاريفك وتصنيفها في ثوانٍ معدودة.",
     onboardingStep2Title: "محاكاة خيارات المستقبل",
@@ -18,6 +18,22 @@ export const translations = {
     back: "رجوع",
     privacyNotice: "🔒 بياناتك مشفرة ومحمية بالكامل. نحن نلتزم بأعلى معايير الخصوصية المصرفية الدولية ولا نشارك معلوماتك أبداً.",
     
+    // Notes
+    notesTitle: "الملاحظات المالية",
+    createNote: "إنشاء ملاحظة",
+    searchNotes: "البحث في الملاحظات",
+    emptyNotes: "لا توجد ملاحظات حالياً. أضف أفكارك وأهدافك المالية هنا.",
+    noteTitlePlaceholder: "عنوان الملاحظة...",
+    noteContentPlaceholder: "اكتب ملاحظتك المالية هنا...",
+    saveNote: "حفظ الملاحظة",
+    analyzeWithAI: "تحليل ذكي",
+    sortNewest: "الأحدث أولاً",
+    sortOldest: "الأقدم أولاً",
+    cancel: "إلغاء",
+    edit: "تعديل",
+    delete: "حذف",
+    noteSaved: "تم الحفظ",
+
     // Dashboard / Tab bar
     home: "الرئيسية",
     coach: "المستشار الذكي",
@@ -25,6 +41,7 @@ export const translations = {
     healthScore: "الصحة المالية",
     upload: "كشف حساب",
     settings: "الإعدادات",
+    notes: "الملاحظات",
     
     // Home Dashboard screen
     balanceSummary: "ملخص المحفظة الشهرية",
@@ -132,7 +149,36 @@ export const translations = {
     switchHighDebtProfile: "تفاصيل نفقات زائدة مع ديون متراكمة",
     secureCryptography: "معايير الخصوصية المطبقة:",
     cryptDesc: "تطبيق تشفير 256-bit AES لكافة المرفقات المقروءة على الخادم، وحذف فوري للبيانات بعد معالجة الطلبات محلياً بالكامل.",
-    appVersion: "نسخة التطبيق للعرض: 1.2 "
+    appVersion: "نسخة التطبيق للعرض: 1.2 ",
+    
+    // Profile
+    profilePhoto: "الصورة الشخصية",
+    uploadPhotoBtn: "رفع صورة",
+    changePhotoBtn: "تغيير الصورة",
+    removePhotoBtn: "إزالة",
+    uploadingPhoto: "جاري الرفع...",
+
+    // Career & Intelligence
+    career: "المسار المهني",
+    careerTitle: "الذكاء المهني والفرص المتاحة",
+    careerDesc: "فرص للعمل عن بعد والمشاريع بناءً على تحليلات وضعك المالي وقدراتك. نساعدك على زيادة دخلك.",
+    skillsAndExp: "المهارات والخبرات:",
+    jobRecommendations: "فرص العمل والدخل الإضافي",
+    matchPercentage: "نسبة التوافق",
+    whyMatch: "سبب التوافق:",
+    skillsToImprove: "مهارات مقترحة للتطوير:",
+
+    // SMS & Notes
+    smsPermissionTitle: "الوصول للإشعارات البنكية قصيرة الأمد",
+    smsPermissionDesc: "السماح لـ FinX بقراءة الإشعارات البنكية الواردة لاستخراج قيم المشتريات والرواتب تلقائياً وتحويلها إلى ملاحظات مالية.",
+    enableSms: "السماح بالوصول للرسائل (SMS)",
+    disableSms: "إيقاف وصول الرسائل (SMS)",
+    smsEnabled: "الوصول مفعّل",
+    reviewNotesTitle: "تحليل الإشعار البنكي الذكي",
+    approveNote: "اعتماد واستخراج",
+    rejectNote: "تجاهل مستخرج الرسالة",
+    noSmsNotes: "الصق نص رسالتك البنكية لتحليلها ذكياً:",
+    importSmsBtn: "تحليل وإضافة للملاحظات",
   },
   en: {
     appName: "FinX",
@@ -151,6 +197,22 @@ export const translations = {
     back: "Back",
     privacyNotice: "🔒 Your financial details are 100% encrypted & protected. We follow top international banking privacy standards.",
     
+    // Notes
+    notesTitle: "Financial Notes",
+    createNote: "Create Note",
+    searchNotes: "Search notes...",
+    emptyNotes: "No notes yet. Add your financial thoughts and goals here.",
+    noteTitlePlaceholder: "Note title...",
+    noteContentPlaceholder: "Write your financial note here...",
+    saveNote: "Save Note",
+    analyzeWithAI: "Analyze with AI",
+    sortNewest: "Newest First",
+    sortOldest: "Oldest First",
+    cancel: "Cancel",
+    edit: "Edit",
+    delete: "Delete",
+    noteSaved: "Saved successfully",
+
     // Dashboard / Tab bar
     home: "Home Dashboard",
     coach: "AI Coach",
@@ -158,6 +220,7 @@ export const translations = {
     healthScore: "Health Score",
     upload: "Upload Statement",
     settings: "Settings",
+    notes: "Notes",
     
     // Home Dashboard screen
     balanceSummary: "Monthly Balance Summary",
@@ -265,6 +328,35 @@ export const translations = {
     switchHighDebtProfile: "Heavy Liability Stream Details (Low Health Score)",
     secureCryptography: "Enterprise Grade Privacy Shield:",
     cryptDesc: "Data is protected with 256-bit military encryption. Files are destroyed immediately after local compilation.",
-    appVersion: "Demo System Version: 1.2 "
+    appVersion: "Demo System Version: 1.2 ",
+    
+    // Profile
+    profilePhoto: "Profile Photo",
+    uploadPhotoBtn: "Upload Photo",
+    changePhotoBtn: "Change Photo",
+    removePhotoBtn: "Remove",
+    uploadingPhoto: "Uploading...",
+
+    // Career & Intelligence
+    career: "Career",
+    careerTitle: "Career & Financial Intelligence",
+    careerDesc: "We analyze your financial health and skills to recommend jobs, remote work, and freelance opportunities tailored for you.",
+    skillsAndExp: "Skills & Experience:",
+    jobRecommendations: "Job & Side Income Opportunities",
+    matchPercentage: "Match %",
+    whyMatch: "Why it's a match:",
+    skillsToImprove: "Skills to improve:",
+
+    // SMS & Notes
+    smsPermissionTitle: "SMS Bank Notifications Access",
+    smsPermissionDesc: "Allow FinX to read incoming bank short messages to auto-extract purchases and salaries into your financial ledger.",
+    enableSms: "Enable SMS Access",
+    disableSms: "Disable SMS Access",
+    smsEnabled: "SMS Access Enabled",
+    reviewNotesTitle: "Smart SMS Extraction",
+    approveNote: "Approve & Extract",
+    rejectNote: "Reject Extraction",
+    noSmsNotes: "Paste your raw bank SMS here to smartly analyze it:",
+    importSmsBtn: "Analyze & Add Note",
   }
 } as const;

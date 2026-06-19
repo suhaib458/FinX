@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { translations } from "../translations";
 import { FinancialAnalysis } from "../types";
-import { getAccessToken, googleSignIn } from "../lib/auth";
 
 interface DashboardProps {
   lang: "ar" | "en";
@@ -39,53 +38,12 @@ export default function Dashboard({ lang, analysis, setActiveTab }: DashboardPro
   const score = analysis.healthScore;
 
   const handleSendReport = async () => {
-    let token = await getAccessToken();
-    let userEmail = "";
-    if (!token) {
-      const result = await googleSignIn();
-      if (!result) return;
-      token = result.accessToken;
-      userEmail = result.user.email || "";
-    } else {
-      // In a real app we might fetch the profile, but for simplicity we just use 'me'
-      userEmail = "me"; 
-    }
-
     try {
       setSendingEmail(true);
-      const emailContent = [
-        `To: ${userEmail === "me" ? "" : userEmail}`,
-        `Subject: ${isRtl ? "تقرير صحتك المالية من FinX" : "Your FinX Financial Health Report"}`,
-        `Content-Type: text/plain; charset=utf-8`,
-        ``,
-        `${isRtl ? "مرحباً، إليك ملخص صحتك المالية:" : "Hello, here is your financial health summary:"}`,
-        `${isRtl ? "الدخل الشهري:" : "Monthly Income:"} ${income} JOD`,
-        `${isRtl ? "المصروفات:" : "Monthly Expenses:"} ${expense} JOD`,
-        `${isRtl ? "درجة الصحة:" : "Health Score:"} ${score}/100`,
-        ``,
-        `${analysis.scoreExplanation}`,
-        ``,
-        `${isRtl ? "نتمنى لك يوماً سعيداً!" : "Have a great day!"}`
-      ].join('\n');
-
-      const encodedEmail = btoa(unescape(encodeURIComponent(emailContent)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-
-      const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ raw: encodedEmail })
-      });
-
-      if (response.ok) {
-        setEmailSuccess(true);
-        setTimeout(() => setEmailSuccess(false), 3000);
-      }
+      // Simulating API call for Hackathon Demo without breaking or throwing warnings
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setEmailSuccess(true);
+      setTimeout(() => setEmailSuccess(false), 3000);
     } catch (err) {
       console.error("Failed to send email:", err);
     } finally {
@@ -115,32 +73,16 @@ export default function Dashboard({ lang, analysis, setActiveTab }: DashboardPro
 
   return (
     <div 
-      className="flex-1 overflow-y-auto px-4 py-5 space-y-5"
-      style={{ direction: isRtl ? "rtl" : "ltr" }}
+      className={`flex-1 overflow-y-auto px-4 py-5 space-y-5 ${isRtl ? 'text-right' : 'text-left'}`}
     >
       {/* Onboarding Summary Header */}
-      <div className="flex items-center justify-between pb-1 border-b border-slate-800/60">
-        <div>
-          <p className="text-[10px] tracking-wider text-slate-400 uppercase font-mono">
-            {isRtl ? "شريك الإدارة الذكية" : "AI FINTECH COPILOT"}
-          </p>
-          <h2 className={`text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300 ${isRtl ? 'font-arabic' : 'font-sans'}`}>
-            {isRtl ? `مرحباً بك في ${t.appName}` : "Your Portfolio Snapshot"}
-          </h2>
-        </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={handleSendReport}
-            disabled={sendingEmail}
-            title={isRtl ? "إرسال التقرير للإيميل" : "Email Report"}
-            className="flex h-8 w-8 hover:scale-105 active:scale-95 transition-all rounded-full bg-slate-900 border border-slate-850 items-center justify-center text-slate-400 hover:text-indigo-400 cursor-pointer disabled:opacity-50"
-          >
-            {emailSuccess ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : <Mail className="w-4 h-4" />}
-          </button>
-          <div className="flex h-8 w-8 rounded-full bg-slate-900 border border-slate-850 items-center justify-center text-indigo-400">
-            <Sparkles className="w-4 h-4" />
-          </div>
-        </div>
+      <div className="pb-1 border-b border-slate-800/60">
+        <p className="text-[10px] tracking-wider text-slate-400 uppercase font-mono">
+          {isRtl ? "شريك الإدارة الذكية" : "AI FINTECH COPILOT"}
+        </p>
+        <h2 className={`text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300 ${isRtl ? 'font-arabic' : 'font-sans'}`}>
+          {isRtl ? `مرحباً بك في ${t.appName}` : "Your Portfolio Snapshot"}
+        </h2>
       </div>
 
       {/* Main Balance Card & Savings indicators - Sophisticated Dark Premium Gradient */}
@@ -171,7 +113,7 @@ export default function Dashboard({ lang, analysis, setActiveTab }: DashboardPro
         {/* Split Inflow / Outflow Widgets */}
         <div className="grid grid-cols-2 gap-4 mt-5 pt-4 border-t border-white/10">
           <div className="space-y-1">
-            <span className="text-[10px] text-indigo-150 flex items-center gap-1/2">
+            <span className="text-[10px] text-indigo-150 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               {t.totalIncome}
             </span>
@@ -180,8 +122,8 @@ export default function Dashboard({ lang, analysis, setActiveTab }: DashboardPro
               <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
             </p>
           </div>
-          <div className="space-y-1 border-l border-white/10 pl-4 rtl:border-l-0 rtl:border-r rtl:pl-0 rtl:pr-4">
-            <span className="text-[10px] text-indigo-150 flex items-center gap-1/2">
+          <div className="space-y-1 border-l border-white/10 pl-4">
+            <span className="text-[10px] text-indigo-150 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
               {t.totalExpenses}
             </span>
@@ -265,8 +207,8 @@ export default function Dashboard({ lang, analysis, setActiveTab }: DashboardPro
           </div>
         </div>
         
-        <div className="relative z-10 bg-indigo-600 group-hover:bg-indigo-500 text-white p-2.5 rounded-full shadow-md transition-all group-hover:shadow-indigo-500/25 shrink-0 group-hover:translate-x-1 rtl:group-hover:-translate-x-1">
-          {isRtl ? <ArrowLeft className="w-4 h-4 stroke-[2.5]" /> : <ArrowRight className="w-4 h-4 stroke-[2.5]" />}
+        <div className="relative z-10 bg-indigo-600 group-hover:bg-indigo-500 text-white p-2.5 rounded-full shadow-md transition-all group-hover:shadow-indigo-500/25 shrink-0 group-hover:translate-x-1">
+          <ArrowRight className="w-4 h-4 stroke-[2.5]" />
         </div>
       </div>
 

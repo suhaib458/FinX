@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Globe, 
   Settings, 
@@ -7,9 +7,16 @@ import {
   Cpu, 
   RotateCcw,
   Check,
-  Languages
+  Languages,
+  LogOut,
+  Fingerprint,
+  Award
 } from "lucide-react";
 import { translations } from "../translations";
+import { auth } from "../lib/firebase";
+import { useWebAuthn } from "../hooks/useWebAuthn";
+import ProfilePhotoManager from "./ProfilePhotoManager";
+import PhoneNumberManager from "./PhoneNumberManager";
 
 interface SettingsTabProps {
   lang: "ar" | "en";
@@ -17,6 +24,8 @@ interface SettingsTabProps {
   activeProfileName: "balanced" | "debt";
   onLoadProfile: (profileType: "balanced" | "debt") => void;
   onResetOnboarding: () => void;
+  onLogout?: () => void;
+  onNavigateRewards?: () => void;
 }
 
 export default function SettingsTab({ 
@@ -24,15 +33,52 @@ export default function SettingsTab({
   setLang, 
   activeProfileName, 
   onLoadProfile, 
-  onResetOnboarding 
+  onResetOnboarding,
+  onLogout,
+  onNavigateRewards
 }: SettingsTabProps) {
   const t = translations[lang];
   const isRtl = lang === "ar";
+  
+  const { isSupported, registerPasskey } = useWebAuthn();
+  const [hasPasskey, setHasPasskey] = useState(false);
+  const [message, setMessage] = useState('');
+  
+  useEffect(() => {
+    // Check if the user has a Passkey locally enabled
+    const passkeyEnabled = localStorage.getItem(`FinX_Passkey_${auth.currentUser?.uid}`);
+    if (passkeyEnabled === 'true') {
+      setHasPasskey(true);
+    }
+  }, []);
+
+  const handleEnableBiometric = async () => {
+    if (!auth.currentUser || !auth.currentUser.email) return;
+    setMessage(isRtl ? 'جاري تفعيل البصمة...' : 'Enabling Passkey...');
+    
+    // WebAuthn Passkeys require active user gesture verification.
+    const success = await registerPasskey(auth.currentUser.uid, auth.currentUser.email);
+    if (success) {
+      localStorage.setItem(`FinX_Passkey_${auth.currentUser.uid}`, 'true');
+      setHasPasskey(true);
+      setMessage(isRtl ? 'تم تفعيل البصمة بنجاح!' : 'Passkey enabled successfully!');
+    } else {
+      setMessage(isRtl ? 'فشل التفعيل أو تم الإلغاء.' : 'Action failed or cancelled.');
+    }
+    setTimeout(() => setMessage(''), 3000);
+  };
+  
+  const handleDisableBiometric = () => {
+    if (!auth.currentUser) return;
+    localStorage.removeItem(`FinX_Passkey_${auth.currentUser.uid}`);
+    setHasPasskey(false);
+    setMessage(isRtl ? 'تم تعطيل البصمة.' : 'Passkey disabled.');
+    setTimeout(() => setMessage(''), 3000);
+  };
 
   return (
     <div 
-      className="flex-1 overflow-y-auto px-4 py-5 space-y-5"
-      style={{ direction: isRtl ? "rtl" : "ltr" }}
+      className={`flex-1 overflow-y-auto px-4 py-5 space-y-5 ${isRtl ? 'text-right' : 'text-left'}`}
     >
       {/* Title Header */}
       <div>
@@ -42,6 +88,27 @@ export default function SettingsTab({
         <h2 className={`text-xl font-bold text-zinc-100 ${isRtl ? 'font-arabic' : 'font-sans'}`}>
           {t.settingsTitle}
         </h2>
+      </div>
+
+      {/* Profile Photo Manager */}
+      <ProfilePhotoManager lang={lang} />
+
+      {/* Rewards Center Link */}
+      <div className="rounded-2xl p-4 bg-slate-900/50 border border-slate-800 space-y-3 cursor-pointer hover:bg-slate-800 transition-colors" onClick={onNavigateRewards}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+              <Award className="w-4 h-4 text-indigo-400" />
+              {isRtl ? "مركز المكافآت" : "Rewards Center"}
+            </h4>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {isRtl ? "استعرض إنجازاتك، نقاطك، واكتشف الهدايا" : "View achievements, points, and discover rewards"}
+            </p>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/20">
+            &rarr;
+          </div>
+        </div>
       </div>
 
       {/* Language Switch Capsule Selector */}
@@ -134,6 +201,45 @@ export default function SettingsTab({
         </button>
       </div>
 
+      {/* Biometric Security */}
+      {isSupported && (
+        <div className="rounded-2xl p-4.5 bg-slate-900/50 border border-slate-800 space-y-3">
+          <div className="space-y-1">
+            <label className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-wide flex items-center gap-1.5">
+              <Fingerprint className="w-4 h-4 text-indigo-400" />
+              {isRtl ? "الأمان وبصمة الدخول" : "Biometric Security"}
+            </label>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              {isRtl ? "سجل دخولك باستخدام بصمة الوجه أو الأصبع بدلاً من كلمة المرور عبر ميزة Passkeys المدعومة بنظام جهازك." : "Sign in securely using Face ID, Touch ID, or Windows Hello via Passkeys without entering your password."}
+            </p>
+            {message && <p className="text-[10px] text-emerald-400 mt-2">{message}</p>}
+          </div>
+
+          <div className="pt-2">
+            {!hasPasskey ? (
+               <button
+                 onClick={handleEnableBiometric}
+                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-indigo-500/20 bg-indigo-600 hover:bg-indigo-700 text-white transition-colors cursor-pointer text-xs font-bold shadow-md shadow-indigo-500/20"
+               >
+                 <ShieldCheck className="w-4 h-4" />
+                 {isRtl ? "تفعيل الدخول عبر البصمة" : "Enable Passkey Login"}
+               </button>
+            ) : (
+               <button
+                 onClick={handleDisableBiometric}
+                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors cursor-pointer text-xs font-bold"
+               >
+                 <RotateCcw className="w-4 h-4" />
+                 {isRtl ? "إيقاف البصمة وحذف السجل" : "Disable Biometric Login"}
+               </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Phone Number & SMS Intelligence */}
+      <PhoneNumberManager lang={lang} />
+
       {/* 4. Privacy, Credentials & Enterprise Encryption Statement */}
       <div className="rounded-2xl p-4.5 bg-gradient-to-r from-blue-950/20 to-slate-900 border border-slate-850 space-y-3">
         <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
@@ -144,6 +250,16 @@ export default function SettingsTab({
           {t.cryptDesc}
         </p>
       </div>
+
+      {onLogout && (
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 transition-colors cursor-pointer text-xs font-bold"
+        >
+          <LogOut className="w-4 h-4" />
+          {isRtl ? "تسجيل الخروج" : "Sign Out"}
+        </button>
+      )}
 
       {/* Debug details */}
       <div className="text-center text-[10px] text-zinc-600 font-mono pt-4 select-none">

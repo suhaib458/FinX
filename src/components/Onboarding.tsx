@@ -50,8 +50,7 @@ export default function Onboarding({ lang, onComplete }: OnboardingProps) {
 
   return (
     <div 
-      className={`flex-1 flex flex-col justify-between p-6 bg-gradient-to-b ${steps[step].gradient} text-white transition-all duration-500`}
-      style={{ direction: isRtl ? "rtl" : "ltr" }}
+      className={`flex-1 flex flex-col justify-between p-6 bg-gradient-to-b ${steps[step].gradient} text-white transition-all duration-500 ${isRtl ? 'text-right' : 'text-left'}`}
     >
       {/* Brand Header */}
       <div className="flex items-center justify-between pt-4">
@@ -121,7 +120,7 @@ export default function Onboarding({ lang, onComplete }: OnboardingProps) {
               onClick={handleBack}
               className="flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
             >
-              {isRtl ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
+              <ArrowLeft className="w-5 h-5" />
             </button>
           )}
 
@@ -131,7 +130,7 @@ export default function Onboarding({ lang, onComplete }: OnboardingProps) {
             className={`flex-1 h-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-700 text-white font-semibold text-sm tracking-wide shadow-lg shadow-indigo-500/10 flex items-center justify-center gap-2 transition-all cursor-pointer ${isRtl ? 'font-arabic' : ''}`}
           >
             <span>{step === 2 ? t.getStarted : t.next}</span>
-            {step < 2 && (isRtl ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />)}
+            {step < 2 && <ArrowRight className="w-4 h-4" />}
           </button>
         </div>
 

@@ -9,7 +9,9 @@ import {
   Coins, 
   BadgeHelp,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Target,
+  Car
 } from "lucide-react";
 import { translations } from "../translations";
 import { FinancialAnalysis } from "../types";
@@ -38,50 +40,68 @@ export default function HealthRatio({ lang, analysis }: HealthRatioProps) {
     return t.cautionState;
   };
 
+  // Calculate dynamic metrics
+  const savingsRate = Math.round(analysis.savingsRate);
+  
+  // Estimate debt ratio (assuming Housing & Bills or fixed expenses)
+  const debtExpense = analysis.categories.find(c => c.name.includes("السكن") || c.name.toLowerCase().includes("housing"))?.value || (analysis.monthlyExpenses * 0.3);
+  const debtRatio = analysis.monthlyIncome > 0 ? Math.round((debtExpense / analysis.monthlyIncome) * 100) : 0;
+  
+  // Goal Progress logic (Based on savings target)
+  const goalTarget = analysis.monthlyIncome * 0.2; // 20% target
+  const goalProgress = goalTarget > 0 ? Math.min(100, Math.round(((analysis.monthlyIncome - analysis.monthlyExpenses) / goalTarget) * 100)) : 0;
+  
+  // Spending profile
+  const discretionaryExpense = analysis.categories.find(c => c.name.includes("التسوق") || c.name.toLowerCase().includes("shopping"))?.value || (analysis.monthlyExpenses * 0.2);
+  const spendingRatio = analysis.monthlyIncome > 0 ? Math.round((discretionaryExpense / analysis.monthlyIncome) * 100) : 0;
+
   // Matrix categories
   const breakdownElements = [
     {
       id: "savings",
-      title: t.componentSavingsTitle,
-      desc: t.componentSavingsDesc,
+      title: isRtl ? "مؤشر الادخار" : "Savings Score",
+      desc: isRtl ? "يقيس مدى قدرتك على الاحتفاظ بجزء من دخلك كمدخرات شهرية مستدامة." : "Measures your ability to retain a portion of your income as sustainable monthly savings.",
       icon: <TrendingUp className="w-4.5 h-4.5 text-indigo-400" />,
-      rating: score >= 85 ? "95%" : score >= 50 ? "75%" : "25%",
-      stateColor: score >= 85 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : score >= 50 ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20",
-      statusText: score >= 85 ? (isRtl ? "مستدام" : "Excellent") : score >= 50 ? (isRtl ? "جيد" : "Moderate") : (isRtl ? "منخفض" : "Critical"),
+      rating: `${savingsRate}%`,
+      progress: Math.min(100, savingsRate * 3), // Visual scale multiplier
+      stateColor: savingsRate >= 20 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : savingsRate >= 10 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20",
+      statusText: savingsRate >= 20 ? (isRtl ? "مستدام" : "Excellent") : savingsRate >= 10 ? (isRtl ? "جيد" : "Moderate") : (isRtl ? "منخفض" : "Critical"),
     },
     {
       id: "debt",
-      title: t.componentDebtTitle,
-      desc: t.componentDebtDesc,
+      title: isRtl ? "مؤشر الديون" : "Debt Score",
+      desc: isRtl ? "يعكس التزاماتك المالية الشهرية كنسبة مئوية من إجمالي الدخل." : "Reflects your fixed monthly financial commitments as a percentage of gross income.",
       icon: <Scale className="w-4.5 h-4.5 text-indigo-400" />,
-      rating: score >= 85 ? "0-10%" : score >= 50 ? "15-25%" : "35%+",
-      stateColor: score >= 85 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : score >= 50 ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20",
-      statusText: score >= 85 ? (isRtl ? "آمن تماماً" : "Fully Secure") : score >= 50 ? (isRtl ? "معتدل" : "Average") : (isRtl ? "مرتفع الديون" : "High Burden"),
+      rating: `${debtRatio}%`,
+      progress: Math.max(0, 100 - debtRatio), // Inverse visualization
+      stateColor: debtRatio <= 25 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : debtRatio <= 40 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20",
+      statusText: debtRatio <= 25 ? (isRtl ? "آمن تماماً" : "Fully Secure") : debtRatio <= 40 ? (isRtl ? "معتدل" : "Average") : (isRtl ? "مرتفع الديون" : "High Burden"),
     },
     {
       id: "discipline",
-      title: t.componentDisciplineTitle,
-      desc: t.componentDisciplineDesc,
+      title: isRtl ? "مؤشر الإنفاق" : "Spending Score",
+      desc: isRtl ? "يقيم حجم نفقاتك الكمالية مقابل نفقاتك الأساسية ومدخراتك." : "Evaluates discretionary spending against baseline essential expenses and savings.",
       icon: <Flame className="w-4.5 h-4.5 text-rose-400" />,
-      rating: score >= 85 ? (isRtl ? "ممتاز" : "High") : score >= 50 ? (isRtl ? "متوسط" : "Medium") : (isRtl ? "ضعيف" : "Low"),
-      stateColor: score >= 85 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : score >= 50 ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20",
-      statusText: score >= 85 ? (isRtl ? "منضبط" : "Disciplined") : score >= 50 ? (isRtl ? "شبه منفلت" : "Emotional") : (isRtl ? "استهلاك مفرط" : "Overspending"),
+      rating: `${spendingRatio}%`,
+      progress: Math.max(0, 100 - (spendingRatio * 2)),
+      stateColor: spendingRatio <= 15 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : spendingRatio <= 30 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20",
+      statusText: spendingRatio <= 15 ? (isRtl ? "منضبط" : "Disciplined") : spendingRatio <= 30 ? (isRtl ? "شبه منفلت" : "Emotional") : (isRtl ? "استهلاك مفرط" : "Overspending"),
     },
     {
-      id: "emergency",
-      title: t.componentEmergencyTitle,
-      desc: t.componentEmergencyDesc,
-      icon: <ShieldCheck className="w-4.5 h-4.5 text-indigo-400" />,
-      rating: score >= 85 ? (isRtl ? "6 أشهر" : "6 Months") : score >= 50 ? (isRtl ? "3 أشهر" : "3 Months") : (isRtl ? "أسبوع واحد" : "Insufficient"),
-      stateColor: score >= 85 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : score >= 50 ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20",
-      statusText: score >= 85 ? (isRtl ? "مكتمل" : "Covered") : score >= 50 ? (isRtl ? "كافٍ" : "Adequate") : (isRtl ? "قريب للصفر" : "None"),
+      id: "goal",
+      title: isRtl ? "تقدم الأهداف" : "Goal Progress Score",
+      desc: isRtl ? "مدى التزامك بتحقيق هدف الادخار الشهري الأمثل (20%)." : "Adherence to achieving the optimal baseline monthly savings target (20%).",
+      icon: <CheckCircle2 className="w-4.5 h-4.5 text-indigo-400" />,
+      rating: `${goalProgress}%`,
+      progress: goalProgress,
+      stateColor: goalProgress >= 100 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : goalProgress >= 50 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20",
+      statusText: goalProgress >= 100 ? (isRtl ? "مكتمل" : "Covered") : goalProgress >= 50 ? (isRtl ? "كافٍ" : "Adequate") : (isRtl ? "متأخر" : "Falling behind"),
     },
   ];
 
   return (
     <div 
-      className="flex-1 overflow-y-auto px-4 py-5 space-y-5"
-      style={{ direction: isRtl ? "rtl" : "ltr" }}
+      className={`flex-1 overflow-y-auto px-4 py-5 space-y-5 ${isRtl ? 'text-right' : 'text-left'}`}
     >
       {/* Title bar */}
       <div>
@@ -160,24 +180,36 @@ export default function HealthRatio({ lang, analysis }: HealthRatioProps) {
                 className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden cursor-pointer hover:border-indigo-500/20 transition-all duration-300"
               >
                 {/* Header Line */}
-                <div className="p-3.5 flex items-center justify-between gap-3.5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-950 flex items-center justify-center border border-slate-850">
+                <div className="p-3.5 flex items-center justify-between gap-3.5 relative">
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-8 h-8 rounded-lg bg-slate-950 flex items-center justify-center border border-slate-850 shrink-0">
                       {el.icon}
                     </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-100">{el.title}</h4>
-                      <p className="text-[9px] text-slate-500 font-mono">
-                        {isRtl ? `القيمة: ${el.rating}` : `Value: ${el.rating}`}
-                      </p>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center w-full mb-1">
+                        <h4 className="text-xs font-bold text-slate-100">{el.title}</h4>
+                        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${el.stateColor}`}>
+                          {el.statusText}
+                        </span>
+                      </div>
+                      
+                      {/* Metric & Progress Bar */}
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] text-slate-400 font-mono font-bold w-8 text-right shrink-0">
+                          {el.rating}
+                        </p>
+                        <div className="h-1.5 flex-1 bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-1000 ${el.progress >= 80 ? 'bg-emerald-500' : el.progress >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`} 
+                            style={{ width: `${Math.min(100, Math.max(0, el.progress))}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${el.stateColor}`}>
-                      {el.statusText}
-                    </span>
-                    {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                  <div className="flex items-center justify-center shrink-0 ml-2">
+                    {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-500 hover:text-slate-300" /> : <ChevronDown className="w-4 h-4 text-slate-500 hover:text-slate-300" />}
                   </div>
                 </div>
 
@@ -190,6 +222,51 @@ export default function HealthRatio({ lang, analysis }: HealthRatioProps) {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Visual Goals Section */}
+      <div className="space-y-2.5 mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <Target className="w-4 h-4 text-indigo-400" />
+            {isRtl ? "الأهداف المرئية" : "Visual Goals"}
+          </h3>
+          <span className="bg-indigo-500/20 text-indigo-300 text-[9px] px-2 py-0.5 rounded-full border border-indigo-500/30 uppercase tracking-wider font-mono">Pro</span>
+        </div>
+        
+        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 overflow-hidden relative group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-[30px] rounded-full pointer-events-none transition-all group-hover:bg-indigo-500/10"></div>
+          
+          <div className="flex items-center justify-between mb-4 relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-700 flex items-center justify-center border border-slate-600 shadow-sm">
+                <Car className="w-5 h-5 text-indigo-400" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-200">{isRtl ? "شراء سيارة" : "Buy a Car"}</h4>
+                <p className="text-[10px] text-slate-400 font-mono">1,500 / 10,000 JOD</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-xl font-bold font-mono text-indigo-400">15%</span>
+              <p className="text-[9px] text-slate-500 uppercase">{isRtl ? "تم إنجازه" : "Completed"}</p>
+            </div>
+          </div>
+
+          <div className="relative z-10">
+            <div className="flex gap-1 h-3 mt-4">
+              {[...Array(10)].map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`flex-1 rounded-sm ${i < 2 ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]' : i === 2 ? 'bg-indigo-900 border border-indigo-500/30' : 'bg-slate-800'}`}
+                />
+              ))}
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-4 leading-relaxed relative z-10">
+            {isRtl ? "مؤشرات الذكاء الاصطناعي: بمعدل ادخارك الحالي (20%)، ستصل إلى هدفك خلال 14 شهر." : "AI Insights: At your current savings rate (20%), you will reach this goal in 14 months."}
+          </p>
         </div>
       </div>
 

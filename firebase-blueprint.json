@@ -1,0 +1,23 @@
+{
+  "entities": {
+    "FinNote": {
+      "title": "Financial Note",
+      "description": "User notes",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["title", "content", "userId", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/FinNote" },
+      "description": "User notes collection"
+    }
+  }
+}

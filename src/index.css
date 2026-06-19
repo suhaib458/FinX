@@ -37,6 +37,11 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Ensure punctuation stays correct for right-aligned text inside LTR containers */
+p, h1, h2, h3, h4, h5, h6, span, label, li, a {
+  unicode-bidi: plaintext;
+}
+
 .font-arabic {
   font-family: var(--font-arabic), "Cairo", sans-serif;
 }
@@ -49,4 +54,36 @@ html, body {
 
 .glow-overlay {
   animation: pulseGlow 6s infinite ease-in-out;
+}
+
+.markdown-body {
+  color: inherit;
+  font-family: inherit;
+  word-wrap: break-word;
+}
+.markdown-body p {
+  margin-bottom: 0.75rem;
+}
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+.markdown-body ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-body ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-body strong {
+  font-weight: 600;
+  color: #818cf8; /* brand-accent-light */
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #e2e8f0;
 }

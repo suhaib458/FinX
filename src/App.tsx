@@ -7,7 +7,11 @@ import {
   FileText, 
   Settings as SettingsIcon,
   Languages,
-  Sparkles
+  Sparkles,
+  PlayCircle,
+  LogOut,
+  NotebookText,
+  Briefcase
 } from "lucide-react";
 
 import DeviceShell from "./components/DeviceShell";
@@ -18,7 +22,19 @@ import Simulator from "./components/Simulator";
 import HealthRatio from "./components/HealthRatio";
 import StatementParser from "./components/StatementParser";
 import SettingsTab from "./components/SettingsTab";
+import LaunchVideo from "./components/LaunchVideo";
+import Auth from "./components/Auth";
+import Avatar from "./components/Avatar";
 
+import { auth } from "./lib/firebase";
+import { onAuthStateChanged, User, signOut } from "firebase/auth";
+
+import FinancialNotes from "./components/FinancialNotes";
+
+import CareerIntelligence from "./components/CareerIntelligence";
+import Header from "./components/Header";
+import NashmiProTab from "./components/NashmiProTab";
+import RewardsTab from "./components/RewardsTab";
 import { translations } from "./translations";
 import { FinancialAnalysis, ChatMessage, Transaction, SpendingCategory } from "./types";
 import { 
@@ -28,7 +44,23 @@ import {
   debtProfileEnglish 
 } from "./profiles";
 
+import { RewardsService, RewardProfile } from "./lib/rewards";
+
 export default function App() {
+  // Authentication State
+  const [user, setUser] = useState<User | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+
+  // Rewards Engine State
+  const [rewardProfile, setRewardProfile] = useState<RewardProfile>({
+    points: 0,
+    lifetimePoints: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    lastActiveDate: '',
+    achievements: []
+  });
+
   // 1. Language State
   const [lang, setLang] = useState<"ar" | "en">(() => {
     const saved = localStorage.getItem("finx_language");
@@ -42,7 +74,7 @@ export default function App() {
   });
 
   // 3. Navigation State
-  const [activeTab, setActiveTab] = useState<"home" | "coach" | "simulation" | "healthScore" | "upload" | "settings">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "coach" | "simulation" | "career" | "healthScore" | "upload" | "settings" | "notes" | "nashmiPro" | "rewards">("home");
 
   // 4. Demo Profile Engine State
   const [profileType, setProfileType] = useState<"balanced" | "debt">("balanced");
@@ -52,10 +84,63 @@ export default function App() {
 
   // 6. Conversational chat history state
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [careerChatHistory, setCareerChatHistory] = useState<ChatMessage[]>([]);
+
+  // 7. Cinematic Launch Video State
+  const [showLaunchVideo, setShowLaunchVideo] = useState<boolean>(false);
+
+  // 8. Engagement & Pro State
+  const [isPro, setIsPro] = useState<boolean>(() => {
+    return localStorage.getItem("finx_pro_status") === "true";
+  });
+  const addPoints = async (amount: number, reason: string = "App engagement") => {
+    if (!user) return;
+    await RewardsService.awardPoints(user.uid, amount, isPro, reason);
+  };
+
+  // Track Firebase Auth State
+  useEffect(() => {
+    let unsubProfile: (() => void) | undefined;
+
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      
+      if (currentUser) {
+        try {
+          const profile = await RewardsService.initializeProfile(currentUser.uid);
+          const { streakUpdated, newStreak } = await RewardsService.processDailyStreak(currentUser.uid, profile);
+          
+          if (streakUpdated && newStreak >= 7) {
+             await RewardsService.unlockAchievement(currentUser.uid, "7_day_streak", "7-Day Streak", 50, isPro);
+          }
+
+          unsubProfile = RewardsService.subscribeToProfile(currentUser.uid, (data) => {
+            setRewardProfile(data);
+          });
+        } catch (e) {
+          console.error("Error setting up Rewards ecosystem:", e);
+        }
+      } else {
+        if (unsubProfile) unsubProfile();
+      }
+
+      setAuthChecking(false);
+    });
+    
+    return () => {
+      unsubscribe();
+      if (unsubProfile) unsubProfile();
+    };
+  }, [isPro]);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
 
   // Track preferences across language swaps
   useEffect(() => {
     localStorage.setItem("finx_language", lang);
+    document.documentElement.lang = lang;
     
     // Choose the appropriate profile template centered on local language
     if (profileType === "balanced") {
@@ -171,7 +256,20 @@ export default function App() {
       case "home":
         return <Dashboard lang={lang} analysis={analysis} setActiveTab={setActiveTab} />;
       case "coach":
-        return <AICoach lang={lang} messages={chatHistory} setMessages={setChatHistory} analysis={analysis} />;
+        return <AICoach lang={lang} messages={chatHistory} setMessages={setChatHistory} analysis={analysis} onAction={() => addPoints(10)} />;
+      case "notes":
+        return <FinancialNotes 
+           lang={lang} 
+           onSendToCoach={(prompt: string) => {
+             const newMsg = { id: Date.now().toString(), role: "user" as const, content: prompt, timestamp: new Date().toISOString() };
+             setChatHistory(prev => [...prev, newMsg]);
+             addPoints(20);
+             setActiveTab("coach");
+           }}
+           onAddTransaction={(tx) => { handleAddTransaction(tx); addPoints(30); }}
+        />;
+      case "career":
+        return <CareerIntelligence lang={lang} analysis={analysis} messages={careerChatHistory} setMessages={setCareerChatHistory} onAction={() => addPoints(15)} />;
       case "simulation":
         return <Simulator lang={lang} analysis={analysis} />;
       case "healthScore":
@@ -186,6 +284,10 @@ export default function App() {
             onUpdateAnalysis={setAnalysis}
           />
         );
+      case "nashmiPro":
+        return <NashmiProTab lang={lang} isPro={isPro} />;
+      case "rewards":
+        return <RewardsTab lang={lang} isPro={isPro} profile={rewardProfile} uid={user?.uid} />;
       case "settings":
         return (
           <SettingsTab 
@@ -194,6 +296,8 @@ export default function App() {
             activeProfileName={profileType} 
             onLoadProfile={handleLoadProfile}
             onResetOnboarding={resetOnboarding}
+            onLogout={handleLogout}
+            onNavigateRewards={() => setActiveTab('rewards')}
           />
         );
       default:
@@ -213,53 +317,62 @@ export default function App() {
     );
   }
 
+  if (authChecking) {
+    return (
+      <DeviceShell lang={lang}>
+        <div className="flex-1 flex items-center justify-center bg-[#020617] text-slate-400">
+          <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </DeviceShell>
+    );
+  }
+
+  if (!user) {
+    return (
+      <DeviceShell lang={lang}>
+        <Auth lang={lang} />
+      </DeviceShell>
+    );
+  }
+
   // Common navigation bar metadata items
   const tabs = [
     { id: "home", label: t.home, icon: <Home className="w-5 h-5" /> },
-    { id: "upload", label: t.transactionsHistory || t.upload, icon: <FileText className="w-5 h-5" /> },
+    { id: "career", label: t.career || "Career", icon: <Briefcase className="w-5 h-5" /> },
+    { id: "notes", label: t.notes || "Notes", icon: <NotebookText className="w-5 h-5" /> },
     { id: "simulation", label: t.simulation, icon: <TrendingUp className="w-5 h-5" /> },
     { id: "coach", label: t.coach, icon: <BrainCircuit className="w-5 h-5" /> },
   ] as const;
 
+  const getTabTitle = () => {
+    switch (activeTab) {
+      case "home": return t.home;
+      case "career": return t.career || "Career";
+      case "notes": return t.notes || "Notes";
+      case "simulation": return t.simulation;
+      case "coach": return t.coach;
+      case "upload": return t.upload || "Upload";
+      case "settings": return t.settings || "Settings";
+      case "healthScore": return t.healthScore || "Health Score";
+      default: return "";
+    }
+  };
+
   return (
     <DeviceShell lang={lang}>
       
-      {/* Dynamic Header bar */}
-      <div 
-        className="px-4 py-3 bg-[#020617] border-b border-slate-800 flex items-center justify-between shrink-0 select-none"
-        style={{ direction: isRtl ? "rtl" : "ltr" }}
-      >
-        <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => setActiveTab("home")}>
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-700 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <span className="text-white text-xs font-black font-sans">FX</span>
-          </div>
-          <span className="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 tracking-wider">
-            {t.appName}
-          </span>
-        </div>
-
-        {/* Global actions: Language cap, Profile badge, Quick triggers */}
-        <div className="flex items-center gap-2">
-          {/* Active Profile color indicator */}
-          <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${profileType === "balanced" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"}`}>
-            {profileType === "balanced" ? (isRtl ? "رصيد متزن" : "Balanced") : (isRtl ? "ديون زائدة" : "High Debt")}
-          </span>
-
-          {/* Quick toggle directly on top header */}
-          <button
-            onClick={() => setLang(lang === "ar" ? "en" : "ar")}
-            className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors uppercase font-mono"
-          >
-            <Languages className="w-3 h-3 text-indigo-400" />
-          </button>
-          <button
-            onClick={() => setActiveTab("settings")}
-            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors"
-          >
-            <SettingsIcon className="w-4 h-4 text-slate-400" />
-          </button>
-        </div>
-      </div>
+      <Header 
+        user={user}
+        lang={lang}
+        setLang={setLang}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        appName={t.appName}
+        tabTitle={getTabTitle()}
+        points={rewardProfile.points}
+        streak={rewardProfile.currentStreak}
+        isPro={isPro}
+      />
 
       {/* Main active route scroll screen container */}
       <div className="flex-1 overflow-hidden flex flex-col relative bg-gradient-to-b from-[#020617] via-slate-900 to-slate-950">
@@ -269,9 +382,8 @@ export default function App() {
       {/* Structured Bottom Navigation dock */}
       <div 
         className="bg-[#020617] border-t border-slate-800 text-slate-100 py-1.5 px-2 shrink-0 select-none pb-safe"
-        style={{ direction: isRtl ? "rtl" : "ltr" }}
       >
-        <nav className="grid grid-cols-4 gap-1">
+        <nav className="grid grid-cols-5 gap-1">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -298,6 +410,8 @@ export default function App() {
           })}
         </nav>
       </div>
+
+      {showLaunchVideo && <LaunchVideo onComplete={() => setShowLaunchVideo(false)} />}
 
     </DeviceShell>
   );

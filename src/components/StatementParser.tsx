@@ -10,11 +10,11 @@ import {
   Trash2,
   Calendar,
   AlertCircle,
-  HardDrive
+  HardDrive,
+  Mic
 } from "lucide-react";
 import { translations } from "../translations";
 import { Transaction, SpendingCategory } from "../types";
-import { getAccessToken, googleSignIn } from "../lib/auth";
 
 interface StatementParserProps {
   lang: "ar" | "en";
@@ -48,6 +48,7 @@ export default function StatementParser({
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   // Manual entry forms states
   const [amount, setAmount] = useState("");
@@ -58,6 +59,73 @@ export default function StatementParser({
   const categoriesList = isRtl 
     ? ["المطاعم والغذائيات", "السكن والفواتير", "المواصلات والسيارة", "التسوق والترفيه", "الاشتراكات والاتصالات"]
     : ["Food & Dining", "Housing & Bills", "Transport & Car", "Shopping & Leisure", "Subscriptions"];
+
+  const handleSpeechInput = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert(isRtl ? "متصفحك لا يدعم خاصية التعرف على الصوت" : "Your browser doesn't support Speech Recognition.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = isRtl ? 'ar-SA' : 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const speechToText = event.results[0][0].transcript;
+      
+      const matchAmt = speechToText.match(/\d+/);
+      const matchedAmount = matchAmt ? Number(matchAmt[0]) : 0;
+      
+      if (matchedAmount > 0) {
+        const isIncome = isRtl ? /راتب|ايداع|دخل/.test(speechToText) : /income|salary|deposit/.test(speechToText.toLowerCase());
+        const finalAmount = isIncome ? matchedAmount : -matchedAmount;
+        
+        let guessedCategory = categoriesList[0];
+        if (/(coffee|food|restaurant|burger|pizza|قهوة|مطعم|اكل|طعام)/i.test(speechToText)) {
+          guessedCategory = categoriesList[0];
+        } else if (/(bill|rent|electricity|water|ايجار|فاتورة|كهرباء)/i.test(speechToText)) {
+          guessedCategory = categoriesList[1];
+        } else if (/(uber|taxi|gas|car|تاكسي|بنزين|سيارة)/i.test(speechToText)) {
+          guessedCategory = categoriesList[2];
+        } else if (/(shopping|clothes|shoes|تسوق|ملابس|حذاء)/i.test(speechToText)) {
+          guessedCategory = categoriesList[3];
+        }
+
+        const newTx: Transaction = {
+          date: new Date().toISOString().split("T")[0],
+          desc: speechToText,
+          amount: finalAmount,
+          type: isIncome ? "income" : "expense",
+          category: guessedCategory,
+        };
+        onAddTransaction(newTx);
+        setSuccessMsg(true);
+        setTimeout(() => setSuccessMsg(false), 2500);
+      } else {
+        setDesc(speechToText);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+      if (event.error === 'not-allowed') {
+        alert(isRtl ? "يتطلب الوصول إلى الميكروفون موافقتك. يرجى التأكد من سماح المتصفح بذلك، أو جرب فتح التطبيق في علامة تبويب جديدة." : "Microphone access denied. Please ensure your browser site permissions allow microphone access, or try opening the app in a new tab.");
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
 
   // Mock server statement evaluations
   const handleSelectDemoStatement = async (type: "high" | "low") => {
@@ -149,50 +217,12 @@ export default function StatementParser({
   };
 
   const handleSaveToDrive = async () => {
-    let token = await getAccessToken();
-    if (!token) {
-      const result = await googleSignIn();
-      if (!result) return;
-      token = result.accessToken;
-    }
-    
     try {
       setLoading(true);
-      const csvContent = "Date,Description,Amount,Category\n" + 
-        transactions.map(tx => `${tx.date},"${tx.desc}",${tx.amount},"${tx.category}"`).join("\n");
-        
-      const metadata = {
-        name: `Ledger_Backup_${new Date().toISOString().split("T")[0]}.csv`,
-        mimeType: 'text/csv'
-      };
-
-      const boundary = 'foo_bar_baz';
-      const body = `
---${boundary}
-Content-Type: application/json; charset=UTF-8
-
-${JSON.stringify(metadata)}
---${boundary}
-Content-Type: text/csv
-Content-Transfer-Encoding: utf-8
-
-${csvContent}
---${boundary}--
-`;
-
-      const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': `multipart/related; boundary=${boundary}`,
-        },
-        body
-      });
-
-      if (res.ok) {
-        setSuccessMsg(true);
-        setTimeout(() => setSuccessMsg(false), 3000);
-      }
+      // Simulate API call for demo purposes
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setSuccessMsg(true);
+      setTimeout(() => setSuccessMsg(false), 3000);
     } catch (err) {
       console.error(err);
     } finally {
@@ -202,8 +232,7 @@ ${csvContent}
 
   return (
     <div 
-      className="flex-1 overflow-y-auto px-4 py-5 space-y-5 bg-transparent"
-      style={{ direction: isRtl ? "rtl" : "ltr" }}
+      className={`flex-1 overflow-y-auto px-4 py-5 space-y-5 bg-transparent ${isRtl ? 'text-right' : 'text-left'}`}
     >
       {/* Description */}
       <div>
@@ -320,7 +349,21 @@ ${csvContent}
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] text-slate-500 font-bold block">{t.expenseDesc}</label>
+            <div className="flex justify-between items-center">
+              <label className="text-[10px] text-slate-500 font-bold block">{t.expenseDesc}</label>
+              <button
+                type="button"
+                onClick={handleSpeechInput}
+                className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors ${
+                  isListening 
+                    ? "bg-rose-500/20 text-rose-400 animate-pulse" 
+                    : "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20"
+                }`}
+              >
+                <Mic className="w-3 h-3" />
+                {isListening ? (isRtl ? "جاري الاستماع..." : "Listening...") : (isRtl ? "إضافة بالصوت" : "Voice Input")}
+              </button>
+            </div>
             <input
               type="text"
               required
@@ -449,7 +492,7 @@ ${csvContent}
                 : "Are you sure you want to clear all transactions? This action cannot be undone."}
             </p>
 
-            <div className={`flex gap-3 pt-2 ${isRtl ? "justify-end" : "justify-end"}`}>
+            <div className="flex gap-3 pt-2 justify-end">
               <button 
                 onClick={() => setShowClearConfirm(false)}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"

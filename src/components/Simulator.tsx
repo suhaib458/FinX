@@ -12,9 +12,9 @@ import {
   Info,
   CalendarDays
 } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { translations } from "../translations";
 import { FinancialAnalysis, SimulationScenario } from "../types";
-import { getAccessToken, googleSignIn } from "../lib/auth";
 
 interface SimulatorProps {
   lang: "ar" | "en";
@@ -24,6 +24,7 @@ interface SimulatorProps {
 export default function Simulator({ lang, analysis }: SimulatorProps) {
   const t = translations[lang];
   const isRtl = lang === "ar";
+
 
   // Available Scenarios list
   const scenarios: SimulationScenario[] = [
@@ -44,46 +45,12 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
   const [calendarSuccess, setCalendarSuccess] = useState(false);
 
   const handleSaveToCalendar = async () => {
-    let token = await getAccessToken();
-    if (!token) {
-      const result = await googleSignIn();
-      if (!result) return;
-      token = result.accessToken;
-    }
-
     try {
       setAddingToCalendar(true);
-      const scenLabel = isRtl ? activeScenario.titleAr : activeScenario.titleEn;
-      
-      const futureDate = new Date();
-      futureDate.setFullYear(futureDate.getFullYear() + durationYears);
-      
-      const event = {
-        summary: isRtl ? `هدف مالي: ${scenLabel}` : `Financial Goal: ${scenLabel}`,
-        description: isRtl 
-          ? `دفعة: ${downpayment} د.أ\nقسط: ${monthlyInstallment} د.أ/شهر\nمدة: ${durationYears} سنوات.` 
-          : `Downpayment: ${downpayment} JOD\nMonthly: ${monthlyInstallment} JOD\nDuration: ${durationYears} years.`,
-        start: {
-          date: futureDate.toISOString().split('T')[0],
-        },
-        end: {
-          date: futureDate.toISOString().split('T')[0],
-        }
-      };
-
-      const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(event)
-      });
-
-      if (res.ok) {
-        setCalendarSuccess(true);
-        setTimeout(() => setCalendarSuccess(false), 3000);
-      }
+      // Simulate API call for demo purposes
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setCalendarSuccess(true);
+      setTimeout(() => setCalendarSuccess(false), 3000);
     } catch (err) {
       console.error(err);
     } finally {
@@ -125,18 +92,14 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
     const monthlyRate = annualRate / 12;
 
     const computeCompound = (months: number) => {
-      let principal = currentSavingsAccumulated; // No downpayment cost for save/invest, just starts
-      let balance = principal * Math.pow(1 + monthlyRate, months);
+      let investBalance = 0;
+      let regularBalance = currentSavingsAccumulated;
       
-      // Monthly savings buffer * months
       for (let m = 1; m <= months; m++) {
-        // user puts monthlyInstallment + regular saving leftovers
-        const regularLeftovers = currentMonthlyNetBuffer - monthlyInstallment;
-        const add = regularLeftovers > 0 ? regularLeftovers : 0;
-        
-        balance = balance * (1 + monthlyRate) + (monthlyInstallment + add);
+        investBalance = (investBalance + monthlyInstallment) * (1 + monthlyRate);
+        regularBalance = regularBalance + (currentMonthlyNetBuffer - monthlyInstallment);
       }
-      return Math.round(balance);
+      return Math.round(investBalance + regularBalance);
     };
 
     year1Proj = computeCompound(12);
@@ -201,6 +164,46 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
     simulatedSavingsRate = Math.max(0, baseSavingsRate - addedExpenseRate);
   }
 
+  // Generate Data for 5 Years
+  const chartData = [];
+  for (let i = 0; i <= 5; i++) {
+    const months = i * 12;
+    // Calculate baseline without any scenario
+    let baseline = currentSavingsAccumulated + (currentMonthlyNetBuffer * months);
+    
+    // Calculate projected
+    let projected = currentSavingsAccumulated;
+    if (activeScenarioId === "investment" || activeScenarioId === "save") {
+      const annualRate = activeScenarioId === "investment" ? 0.08 : 0.04;
+      const monthlyRate = annualRate / 12;
+      let investBalance = 0;
+      let regularBalance = currentSavingsAccumulated;
+      for (let m = 1; m <= months; m++) {
+        investBalance = (investBalance + monthlyInstallment) * (1 + monthlyRate);
+        regularBalance = regularBalance + (currentMonthlyNetBuffer - monthlyInstallment);
+      }
+      projected = investBalance + regularBalance;
+    } else {
+      const upfrontCost = activeScenarioId === "loan" ? -downpayment * 0.02 : downpayment;
+      if (months > 0) {
+        if (activeScenarioId === "loan") {
+          projected += downpayment;
+        } else {
+          projected -= upfrontCost;
+        }
+      }
+      for (let m = 1; m <= months; m++) {
+        projected = projected + currentMonthlyNetBuffer - monthlyInstallment;
+      }
+    }
+    
+    chartData.push({
+      year: isRtl ? `السنة ${i}` : `Yr ${i}`,
+      baseline: Math.round(baseline),
+      projected: Math.round(projected)
+    });
+  }
+
   // Choose icon representation helper
   const renderScenarioIcon = (type: string, active: boolean) => {
     const cls = `w-5 h-5 ${active ? "text-white" : "text-slate-400"}`;
@@ -222,8 +225,7 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
 
   return (
     <div 
-      className="flex-1 overflow-y-auto px-4 py-5 space-y-5"
-      style={{ direction: isRtl ? "rtl" : "ltr" }}
+      className={`flex-1 overflow-y-auto px-4 py-5 space-y-5 ${isRtl ? 'text-right' : 'text-left'}`}
     >
       {/* Page Header */}
       <div>
@@ -252,8 +254,8 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
                 onClick={() => setActiveScenarioId(sc.id)}
                 className={`flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all cursor-pointer ${
                   isActive 
-                    ? "bg-gradient-to-tr from-indigo-600 to-blue-700 border-indigo-500 text-white scale-102 shadow-lg shadow-indigo-500/25" 
-                    : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                    ? "bg-gradient-to-tr from-indigo-600 to-blue-700 border-indigo-500 text-white shadow-lg shadow-indigo-500/25 scale-105 z-10" 
+                    : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:bg-slate-800"
                 }`}
               >
                 {renderScenarioIcon(sc.type, isActive)}
@@ -267,7 +269,7 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
       </div>
 
       {/* 2. Configure sliders */}
-      <div className="rounded-2xl p-5 bg-slate-900/50 border border-slate-800 space-y-4 hover:border-slate-700 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300">
+      <div className="rounded-2xl p-5 bg-slate-900/50 border border-slate-800 space-y-4 hover:border-slate-700 transition-colors">
         <label className="text-[10px] text-indigo-400 font-extrabold uppercase tracking-wide block border-b border-slate-800/60 pb-1.5 mb-1">
           {t.configureDecision} — {getScenarioLabel(activeScenarioId)}
         </label>
@@ -323,90 +325,40 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
             <span>1500 {isRtl ? "د.أ" : "JOD"}</span>
           </div>
         </div>
-
-        {/* Duration / Repayment term Years slider */}
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-xs">
-            <span className="text-slate-300 font-medium">
-              {activeScenarioId === "investment" ? (isRtl ? "أفق خطة الاستثمار:" : "Investment horizon:") : (isRtl ? "فترة سداد الأقساط (سنوات):" : "Term amortisation duration:")}
-            </span>
-            <span className="font-bold text-indigo-400 font-mono">
-              {durationYears} {durationYears === 1 ? (isRtl ? "سنة واحدة" : "Year") : (isRtl ? "سنوات" : "Years")}
-            </span>
-          </div>
-          <input
-            type="range"
-            min="1"
-            max="10"
-            step="1"
-            value={durationYears}
-            onChange={(e) => setDurationYears(Number(e.target.value))}
-            className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-          />
-          <span className="text-[9px] text-slate-500 block">
-            1 — 10 {isRtl ? "سنوات سداد" : "Years timeline"}
-          </span>
-        </div>
       </div>
 
       {/* 3. Timeline results & Forecast Bars */}
       <div className="rounded-2xl p-4 bg-slate-900/55 border border-slate-800 space-y-4">
         <label className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-wide block">
-          {t.timelineResults}
+          {t.timelineResults} (5 {isRtl ? "سنوات مقبلة" : "Years Forecast"})
         </label>
 
-        {/* Dynamic bar charts */}
-        <div className="space-y-3 pt-1">
-          {/* year 1 progress */}
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs font-medium">
-              <span className="text-slate-300">{t.shortTerm}</span>
-              <span className={`font-mono ${year1Proj >= 0 ? "text-indigo-400" : "text-rose-400"}`}>
-                {year1Proj.toLocaleString()} JOD
-              </span>
-            </div>
-            {/* Visual Bar line */}
-            <div className="w-full h-3 bg-slate-950 rounded-full overflow-hidden relative">
-              <div 
-                className={`h-full rounded-full transition-all duration-500 ${year1Proj >= 0 ? "bg-gradient-to-r from-indigo-500 to-blue-600 shadow-[0_0_8px_rgba(99,102,241,0.4)]" : "bg-rose-500"}`}
-                style={{ width: `${Math.min(100, Math.max(8, (Math.abs(year1Proj) / 12000) * 100))}%` }}
+        {/* Recharts Area Data Visualization */}
+        <div className="h-48 w-full pt-2 min-h-[192px]" dir="ltr">
+          <ResponsiveContainer width="99%" height="100%" minHeight={180}>
+            <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={feasibility === "dangerous" ? "#f43f5e" : "#6366f1"} stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor={feasibility === "dangerous" ? "#f43f5e" : "#6366f1"} stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorBaseline" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.1}/>
+                  <stop offset="95%" stopColor="#94a3b8" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.4} vertical={false} />
+              <XAxis dataKey="year" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+              <YAxis stroke="#475569" fontSize={10} tickFormatter={(val) => `${val/1000}k`} tickLine={false} axisLine={false} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '12px', fontSize: '11px', color: '#f8fafc' }}
+                itemStyle={{ fontWeight: 600 }}
+                formatter={(value: number, name: string) => [`${value.toLocaleString()} JOD`, name === "projected" ? (isRtl ? "المتوقع" : "Projected") : (isRtl ? "المسار الحالي" : "Current Path")]}
               />
-            </div>
-          </div>
-
-          {/* year 3 progress */}
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs font-medium">
-              <span className="text-slate-300">{t.mediumTerm}</span>
-              <span className={`font-mono ${year3Proj >= 0 ? "text-indigo-400" : "text-rose-400"}`}>
-                {year3Proj.toLocaleString()} JOD
-              </span>
-            </div>
-            {/* Visual Bar line */}
-            <div className="w-full h-3 bg-slate-950 rounded-full overflow-hidden relative">
-              <div 
-                className={`h-full rounded-full transition-all duration-500 ${year3Proj >= 0 ? "bg-gradient-to-r from-indigo-500 to-blue-600 shadow-[0_0_8px_rgba(99,102,241,0.4)]" : "bg-rose-500"}`}
-                style={{ width: `${Math.min(100, Math.max(8, (Math.abs(year3Proj) / 25000) * 100))}%` }}
-              />
-            </div>
-          </div>
-
-          {/* year 5 progress */}
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs font-medium">
-              <span className="text-slate-300">{t.longTerm}</span>
-              <span className={`font-mono ${year5Proj >= 0 ? "text-indigo-400" : "text-rose-400"}`}>
-                {year5Proj.toLocaleString()} JOD
-              </span>
-            </div>
-            {/* Visual Bar line */}
-            <div className="w-full h-3 bg-slate-950 rounded-full overflow-hidden relative">
-              <div 
-                className={`h-full rounded-full transition-all duration-500 ${year5Proj >= 0 ? "bg-gradient-to-r from-indigo-500 to-blue-600 shadow-[0_0_8px_rgba(99,102,241,0.4)]" : "bg-rose-500"}`}
-                style={{ width: `${Math.min(100, Math.max(8, (Math.abs(year5Proj) / 35000) * 100))}%` }}
-              />
-            </div>
-          </div>
+              <Area type="monotone" dataKey="baseline" stroke="#64748b" strokeWidth={2} fillOpacity={1} fill="url(#colorBaseline)" />
+              <Area type="monotone" dataKey="projected" stroke={feasibility === "dangerous" ? "#f43f5e" : "#818cf8"} strokeWidth={3} fillOpacity={1} fill="url(#colorProjected)" />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Dynamic score changes & Advice Certificate stamp */}

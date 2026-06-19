@@ -92,7 +92,7 @@ What would you like to explore today?
 
 // 1. AI Coach Chat Endpoint
 app.post("/api/coach", async (req, res) => {
-  const { messages, language, portfolioDetails } = req.body;
+  const { messages, language, portfolioDetails, attachments } = req.body;
   const lang = language === "ar" ? "ar" : "en";
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Messages array is required" });
@@ -108,10 +108,18 @@ app.post("/api/coach", async (req, res) => {
   }
 
   try {
-    const formattedHistory = messages.slice(0, -1).map((m: any) => ({
-      role: m.role === "user" ? "user" : "model",
-      parts: [{ text: m.content }],
-    }));
+    const formattedHistory: any[] = [];
+    let lastRole = "";
+    for (let m of messages.slice(0, -1)) {
+      const role = m.role === "user" ? "user" : "model";
+      if (role === "model" && formattedHistory.length === 0) continue;
+      if (role === lastRole) continue;
+      formattedHistory.push({
+        role: role,
+        parts: [{ text: m.content }]
+      });
+      lastRole = role;
+    }
 
     let profileContext = "";
     if (portfolioDetails) {
@@ -123,14 +131,30 @@ app.post("/api/coach", async (req, res) => {
     }
 
     const systemPromptString = lang === "ar"
-      ? "أنت 'FinX AI Coach' مستشار مالي مبسط وفعال. ساعد المستخدمين بنصائح قصيرة جداً ومباشرة (حد أقصى 3 نقاط). تجنب الشرح الطويل. ركز فقط على الإجراءات العملية الواضحة." + profileContext
-      : "You are 'FinX AI Coach', a highly concise and actionable financial assistant. Give extremely short, direct answers (max 3 bullet points). Avoid long paragraphs or generic advice. Focus only on clear, practical steps." + profileContext;
+      ? "أنت 'FinX AI Coach' مستشار مالي مبسط وفعال. ساعد المستخدمين بنصائح قصيرة جداً ومباشرة (حد أقصى 3 نقاط). تجنب الشرح الطويل. ركز فقط على الإجراءات العملية الواضحة. يمكنك قراءة وفهم الصور والمستندات المرفقة (مثل الفواتير، الإيصالات، أو الكشوف البنكية) لاستخراج المعلومات بذكاء." + profileContext
+      : "You are 'FinX AI Coach', a highly concise and actionable financial assistant. Give extremely short, direct answers (max 3 bullet points). Avoid long paragraphs or generic advice. Focus only on clear, practical steps. You can read and analyze uploaded images and documents (receipts, bills, bank statements) to extract structural components and financial items smartly." + profileContext;
+
+    // Attachments Processing
+    const partsArray: any[] = [{ text: userText }];
+    if (attachments && Array.isArray(attachments)) {
+      for (const att of attachments) {
+        if (att.data) {
+          const rawBase64 = att.data.includes("base64,") ? att.data.split("base64,")[1] : att.data;
+          partsArray.push({
+            inlineData: {
+              data: rawBase64,
+              mimeType: att.mimeType || "application/octet-stream",
+            }
+          });
+        }
+      }
+    }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: [
         ...formattedHistory,
-        { role: "user", parts: [{ text: userText }] },
+        { role: "user", parts: partsArray },
       ],
       config: {
         systemInstruction: systemPromptString,
@@ -239,7 +263,7 @@ If the uploaded file is a standard demo placeholder, generate incredibly polishe
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: parts,
       config: {
         responseMimeType: "application/json",
@@ -308,6 +332,188 @@ If the uploaded file is a standard demo placeholder, generate incredibly polishe
   }
 });
 
+// 3. Career AI Chat Endpoint
+app.post("/api/career-chat", async (req, res) => {
+  const { messages, language, portfolioDetails, attachments } = req.body;
+  const lang = language === "ar" ? "ar" : "en";
+  if (!ai) return res.status(500).json({ reply: "Gemini API key missing. Running in local mode. Please set GEMINI_API_KEY to test the AI functionality." });
+  
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: "Messages array is required" });
+  }
+
+  try {
+    const formattedHistory: any[] = [];
+    let lastRole = "";
+    for (let m of messages.slice(0, -1)) {
+      const role = m.role === "user" ? "user" : "model";
+      if (role === "model" && formattedHistory.length === 0) continue;
+      if (role === lastRole) continue;
+      formattedHistory.push({
+        role: role,
+        parts: [{ text: m.content }]
+      });
+      lastRole = role;
+    }
+
+    const latestMessageObj = messages[messages.length - 1];
+    const userText = latestMessageObj.content || "";
+    
+    // Fallback info if portfolioDetails absent
+    const pHealthScore = portfolioDetails?.healthScore || 50;
+    const pIncome = portfolioDetails?.income || 0;
+    const pSavingsRate = portfolioDetails?.savingsRate || 0;
+    const statusNote = pHealthScore > 70 ? "Stable, seeking growth" : "Needs supplemental income";
+
+    const systemPromptString = lang === "ar"
+      ? `أنت مستشار مهني وخبير توظيف ذكي (Career AI Assistant) مخصص لمساعدة المستخدمين في تحليل سيرتهم الذاتية والمستندات المهنية واقتراح الوظائف المناسبة.
+قم بتحليل الصور والنصوص المرفقة بعمق (السيرة الذاتية، الشهادات، الوصف الوظيفي). 
+حدد تفاصيل مثل: نقاط القوة، نقاط الضعف، اقتراحات التحسين، المهارات الناقصة، والمسار المهني، ونصائح للمقابلة.
+تتضمن مهامك البحث الذكي عبر منصات التوظيف (مثل LinkedIn)، إذا طلب منك البحث عن وظيفة أو تمت مشاركة ملف صوتي أو نصي لهامش وظيفة، قدم قائمة بالوظائف الوهمية أو المتوافقة التي تجدها كما لو كنت متصلاً بـ LinkedIn (أظهر نسبة التوافق لكل وظيفة واشرح لماذا تتوافق).
+تذكر أن صحة المستخدم المالية هي ${pHealthScore}/100، دخله ${pIncome} ومعدل مدخراته ${pSavingsRate}%. وضعه: "${statusNote}". اربط بين تحسين الدخل وخطته المهنية.`
+      : `You are an intelligent Career AI Assistant and Employment Expert. 
+Help users analyze their resumes, certificates, job descriptions, portfolio screenshots, and other career documents.
+If they upload files/images, extract the text using OCR and structurally analyze it. 
+Provide professional insights like: Summary, Strengths, Weaknesses, Recommendations, Missing Skills, Career Opportunities, and an Action Plan. 
+Your capabilities include simulating job board integration (like LinkedIn). If the user asks you to find a job or searches via voice/text, generate realistic job matches as if querying LinkedIn, and provide a match percentage with an explanation for each.
+Consider their financial health score is ${pHealthScore}/100, monthly income is ${pIncome}, saving rate ${pSavingsRate}% and their status is: "${statusNote}". Suggest roles and plans that maximize their income and fit their profile. Use professional, clear markdown formatting.`;
+
+    const partsArray: any[] = [{ text: userText }];
+    if (attachments && Array.isArray(attachments)) {
+      for (const att of attachments) {
+        if (att.data) {
+          const rawBase64 = att.data.includes("base64,") ? att.data.split("base64,")[1] : att.data;
+          partsArray.push({
+            inlineData: {
+              data: rawBase64,
+              mimeType: att.mimeType || "application/octet-stream",
+            }
+          });
+        }
+      }
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        ...formattedHistory,
+        { role: "user", parts: partsArray },
+      ],
+      config: {
+        systemInstruction: systemPromptString,
+        temperature: 0.7,
+      },
+    });
+
+    res.json({ reply: response.text });
+  } catch (err: any) {
+    console.error("Career API error:", err.message || err);
+    let replyMsg = lang === "ar" 
+      ? "عذراً، أواجه ضغطاً كبيراً في الوقت الحالي. يرجى المحاولة مرة أخرى لاحقاً." 
+      : "I am currently experiencing high demand. Please try again a bit later.";
+      
+    if (err.status !== 503 && !err.message?.includes('503')) {
+       replyMsg = lang === "ar" 
+         ? "عذراً، حدث خطأ أثناء الاتصال بالخادم. يرجى المحاولة مرة أخرى."
+         : "Sorry, a server error occurred. Please try again.";
+    }
+    
+    // Instead of 500 error, return a friendly chat message so the UI can show it.
+    res.json({ reply: replyMsg });
+  }
+});
+
+// 5. PDF Summary Generator Endpoint
+app.post("/api/coach-summary", async (req, res) => {
+  const { messages, language, userName } = req.body;
+  const lang = language === "ar" ? "ar" : "en";
+  if (!ai) return res.status(500).json({ error: "Gemini API key missing" });
+  
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: "Messages array is required" });
+  }
+
+  try {
+    const rawChat = messages.map((m: any) => `${m.role}: ${m.content}`).join("\n");
+    
+    const prompt = lang === "ar" 
+      ? `أنت مساعد مالي ذكي. قم بتحليل هذا النقاش ولخصه في تقرير أنيق بتنسيق JSON.
+النقاش:
+${rawChat}
+
+استخرج البيانات لملء هذا التنسيق بالضبط بأسلوب احترافي:
+{
+  "title": "ملخص استشارة FinX",
+  "summary": "ملخص عام للنقاش (2-3 جمل)",
+  "keyPoints": ["نقطة 1", "نقطة 2", "نقطة 3"],
+  "recommendations": ["توصية 1", "توصية 2"],
+  "actionPlan": ["خطوة 1", "خطوة 2"],
+  "goals": ["هدف 1", "هدف 2"],
+  "warnings": ["تحذير 1"] (إن وجد، وإلا مصفوفة فارغة)
+}` 
+      : `You are an intelligent financial assistant. Analyze the following conversation and summarize it into an elegant report in JSON format.
+Conversation:
+${rawChat}
+
+Extract the details to exactly match this JSON schema with professional tone:
+{
+  "title": "FinX Consultation Summary",
+  "summary": "Overall summary of the discussion (2-3 sentences)",
+  "keyPoints": ["point 1", "point 2", "point 3"],
+  "recommendations": ["rec 1", "rec 2"],
+  "actionPlan": ["step 1", "step 2"],
+  "goals": ["goal 1", "goal 2"],
+  "warnings": ["warning 1"] (if applicable, else empty array)
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    const reportJson = JSON.parse(response.text || "{}");
+    res.json(reportJson);
+  } catch (err: any) {
+    console.error("Coach summary error:", err.message);
+    res.status(500).json({ error: "Failed to generate summary" });
+  }
+});
+app.post("/api/parse-sms", async (req, res) => {
+  const { smsText, language } = req.body;
+  const lang = language === "ar" ? "ar" : "en";
+  if (!ai) return res.status(500).json({ error: "Gemini API key missing" });
+  
+  try {
+    const promptText = `
+Extract the transaction details from this raw bank SMS.
+Return ONLY structured JSON data. Ensure the language is ${lang === "ar" ? "Arabic" : "English"}.
+SMS: "${smsText}"
+JSON Schema:
+{
+  "amount": number (positive for income/deposits, negative for purchases/withdrawals),
+  "currency": "string",
+  "merchant": "string (the store or 'Bank' for salary/deposit)",
+  "type": "income" | "expense",
+  "date": "string (readable date)",
+  "category": "string (smart categorization like 'Groceries', 'Salary', 'Dining', 'Shopping')",
+  "title": "string (A short, clean note title)"
+}
+`;
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ text: promptText }],
+      config: { responseMimeType: "application/json" },
+    });
+    res.json(JSON.parse(response.text! || "{}"));
+  } catch(err) {
+    console.error("SMS parser err", err);
+    res.status(500).json({ error: "Failed to parse SMS" });
+  }
+});
+
 // ----------------------
 // VITE OR STATIC SERVING MIDDLEWARE
 // ----------------------
@@ -315,7 +521,10 @@ async function setupViteAndStatic() {
   if (process.env.NODE_ENV !== "production") {
     console.log("Starting in Development mode with Vite live assets middleware");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        hmr: { overlay: false }
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);

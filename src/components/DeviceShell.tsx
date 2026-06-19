@@ -32,42 +32,10 @@ export default function DeviceShell({ children, lang }: DeviceShellProps) {
       {/* Main Container */}
       <div className="relative w-full md:max-w-[420px] h-screen md:h-[860px] bg-[#020617] md:rounded-[48px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border-0 md:border-8 border-slate-800 flex flex-col overflow-hidden transition-all duration-300">
         
-        {/* Physical Camera Notch / Dynamic Island for Presentation */}
-        <div className="hidden md:flex absolute top-0 left-1/2 transform -translate-x-1/2 w-40 h-7 bg-black rounded-b-2xl z-50 items-center justify-center">
-          <div className="w-3 h-3 rounded-full bg-zinc-900/40 mr-1.5 border border-zinc-800"></div>
-          <div className="w-12 h-1 rounded-full bg-slate-900"></div>
-        </div>
-
-        {/* Dynamic Status Bar (Bilingual labels) */}
-        <div 
-          className="bg-[#020617]/95 text-xs text-zinc-100 flex items-center justify-between px-6 pt-3 md:pt-4 pb-2 z-40 shrink-0 font-medium tracking-wide select-none border-b border-slate-800/60"
-          style={{ direction: lang === "ar" ? "rtl" : "ltr" }}
-        >
-          {/* Network Carrier */}
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-bold text-slate-400">
-              {lang === "ar" ? "فنيكس LTE" : "FinX LTE"}
-            </span>
-          </div>
-
-          {/* Clock */}
-          <div className="font-semibold text-slate-200 ml-1">
-            {currentTime || "12:00 PM"}
-          </div>
-
-          {/* Battery and Wifi status indicators */}
-          <div className="flex items-center gap-1.5">
-            <Signal className="w-3 h-3 text-slate-300" />
-            <Wifi className="w-3 h-3 text-slate-300" />
-            <div className="flex items-center gap-0.5">
-              <span className="text-[9px] text-slate-400">98%</span>
-              <Battery className="w-4 h-4 text-emerald-400 fill-emerald-400/20" />
-            </div>
-          </div>
-        </div>
-
         {/* Physical screen window */}
-        <div className="flex-1 w-full flex flex-col overflow-hidden relative bg-[#020617] text-slate-200">
+        <div 
+          className="flex-1 w-full flex flex-col overflow-hidden relative bg-[#020617] text-slate-200"
+        >
           {children}
         </div>
 

@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Sparkles, BrainCircuit, AlertCircle, Trash2, Mic, MicOff, Paperclip, X, Download } from "lucide-react";
+import { Send, Bot, User, Sparkles, BriefcaseBusiness, AlertCircle, Trash2, Mic, MicOff, Paperclip, X } from "lucide-react";
 import { translations } from "../translations";
 import { ChatMessage } from "../types";
 import { auth } from "../lib/firebase";
-import ReportPreviewModal from "./ReportPreviewModal";
 import Avatar from "./Avatar";
 
-interface AICoachProps {
+import Markdown from "react-markdown";
+
+interface CareerIntelligenceProps {
   lang: "ar" | "en";
   messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
@@ -22,27 +23,35 @@ declare global {
   }
 }
 
-export default function AICoach({ lang, messages, setMessages, analysis, onAction }: AICoachProps) {
+export default function CareerIntelligence({ lang, messages, setMessages, analysis, onAction }: CareerIntelligenceProps) {
   const t = translations[lang];
   const isRtl = lang === "ar";
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  
-  // Suggested direct prompt chips
-  const presets = [
-    t.presetSaveQuestion,
-    t.presetScoreQuestion,
-    t.presetLoanQuestion,
-  ];
 
   // Voice Input State
   const [isListening, setIsListening] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   // File Attachments State
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+// Add default initial message
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([
+        {
+          id: "greet",
+          role: "assistant",
+          content: lang === 'ar' ? 'مرحباً! أنا مساعدك المهني الذكي. يرجى إرفاق سيرتك الذاتية أو تفاصيل خبراتك لأقوم بتحليلها واقتراح التحسينات وأفضل الفرص الوظيفية المتاحة.' : 'Hello! I am your AI Career Assistant. Please attach your Resume (CV) or describe your experience, and I will analyze it to provide recommendations and job opportunities.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        }
+      ]);
+    }
+  }, [lang, messages.length, setMessages]);
 
   useEffect(() => {
     // Initialize SpeechRecognition
@@ -106,10 +115,46 @@ export default function AICoach({ lang, messages, setMessages, analysis, onActio
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+  const VALID_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv'];
+  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+  const validateAndAddFiles = (filesList: File[]) => {
+    const validFiles = filesList.filter(f => {
+      if (f.size > MAX_SIZE) {
+        alert(lang === 'ar' ? `الملف ${f.name} يتجاوز الحجم المسموح به (5MB)` : `File ${f.name} exceeds max size (5MB)`);
+        return false;
+      }
+      return true; // Optionally enforce VALID_TYPES but File API already filters by accept
+    });
+    setAttachments(prev => [...prev, ...validFiles]);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files) {
+      const newFiles = Array.from(e.dataTransfer.files) as File[];
+      validateAndAddFiles(newFiles);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setAttachments(prev => [...prev, ...newFiles]);
+      const newFiles = Array.from(e.target.files) as File[];
+      validateAndAddFiles(newFiles);
+    }
+    // reset input so the same file could be selected again if needed
+    if (fileInputRef.current) {
+        fileInputRef.current.value = "";
     }
   };
 
@@ -165,7 +210,7 @@ export default function AICoach({ lang, messages, setMessages, analysis, onActio
         })
       );
 
-      const response = await fetch("/api/coach", {
+      const response = await fetch("/api/career-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -210,90 +255,55 @@ export default function AICoach({ lang, messages, setMessages, analysis, onActio
     }
   };
 
-  const [showReportPreview, setShowReportPreview] = useState(false);
-
   const clearChat = () => {
     setMessages([
       {
         id: "greet",
         role: "assistant",
-        content: t.chatGreeting,
+        content: lang === 'ar' ? 'مرحباً! قم برفع سيرتك الذاتية (CV)، أو الشهادات، أو وصف وظيفي لمساعدتك في تحليل وضعك المهني.' : 'Hello! Upload your Resume (CV), certificates, or job descriptions so I can analyze your career profile.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }
     ]);
   };
 
-  // Crude formatting helper to render bold keywords and clean list bullets
-  const formatText = (content: string) => {
-    return content.split("\n").map((line, i) => {
-      let trimmed = line.trim();
-      let isBullet = trimmed.startsWith("•") || trimmed.startsWith("-") || /^\d+\./.test(trimmed);
-      
-      // Replace bold tags
-      let formattedText = line;
-      const boldRegex = /\*\*(.*?)\*\*/g;
-      const matches = [...line.matchAll(boldRegex)];
-      
-      if (matches.length > 0) {
-        // Return structured JSX elements easily
-        let parts = [];
-        let lastIndex = 0;
-        let match;
-        boldRegex.lastIndex = 0;
-        while ((match = boldRegex.exec(line)) !== null) {
-          parts.push(line.substring(lastIndex, match.index));
-          parts.push(<strong key={match.index} className="text-indigo-400 font-bold">{match[1]}</strong>);
-          lastIndex = boldRegex.lastIndex;
-        }
-        parts.push(line.substring(lastIndex));
-        return (
-          <div key={i} className={`min-h-[20px] ${isBullet ? (isRtl ? 'pr-3 border-r-2 border-indigo-500/30' : 'pl-3 border-l-2 border-indigo-500/30') : ''} mb-1.5`}>
-            {parts}
-          </div>
-        );
-      }
-
-      return (
-        <p key={i} className={`min-h-[16px] mb-1 leading-relaxed ${isBullet ? (isRtl ? 'pr-3 border-r-2 border-indigo-500/20 text-slate-200' : 'pl-3 border-l-2 border-indigo-500/20 text-slate-200') : ''}`}>
-          {line}
-        </p>
-      );
-    });
-  };
-
   return (
     <div 
-      className={`flex-1 flex flex-col h-full overflow-hidden bg-[#020617] ${isRtl ? 'text-right' : 'text-left'}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`flex-1 flex flex-col h-full overflow-hidden bg-[#020617] relative ${isRtl ? 'text-right' : 'text-left'}`}
     >
+      
+      {isDragOver && (
+        <div className="absolute inset-0 z-50 bg-indigo-900/40 backdrop-blur-sm border-2 border-dashed border-indigo-400 flex flex-col items-center justify-center pointer-events-none rounded-xl m-2">
+          <Sparkles className="w-12 h-12 text-indigo-400 mb-2 animate-pulse" />
+          <p className="text-indigo-200 font-bold text-lg">{lang === 'ar' ? 'أفلت الملفات هنا للتحليل' : 'Drop files here to analyze'}</p>
+        </div>
+      )}
+
       {/* Mini Title bar Header */}
       <div className="p-4 border-b border-slate-850 bg-slate-900/25 shrink-0 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-400">
-            <BrainCircuit className="w-4.5 h-4.5" />
+            <BriefcaseBusiness className="w-4.5 h-4.5" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-white font-sans">{t.coachTitle}</h3>
-            <p className="text-[9px] text-slate-400 tracking-tight font-medium uppercase font-sans">{t.appSubtitle}</p>
+            <h3 className="text-xs font-bold text-white font-sans flex items-center gap-1.5">
+              {t.careerTitle}
+              <span className="bg-indigo-500/20 text-indigo-300 text-[8px] px-1.5 py-0.5 rounded-sm border border-indigo-500/30 font-bold uppercase tracking-wider">Pro</span>
+            </h3>
+            <p className="text-[8px] text-slate-400 tracking-tight font-medium uppercase font-sans">
+              {isRtl ? "متصل بشبكة الوظائف / حد الصوت ١ دقيقة" : "Linked jobs / Max Voice 1 min"}
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setShowReportPreview(true)}
-            disabled={messages.length <= 1}
-            title={lang === "ar" ? "تصدير النقاش كملف PDF" : "Export Chat to PDF"}
-            className="text-slate-400 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 border border-slate-800"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="text-[10px] hidden sm:block">{lang === "ar" ? "تصدير" : "Export"}</span>
-          </button>
-          <button 
-            onClick={clearChat}
-            title="Clear Conversation"
-            className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
+        <button 
+          onClick={clearChat}
+          title="Clear Conversation"
+          className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Main scrolling Chat container */}
@@ -327,7 +337,9 @@ export default function AICoach({ lang, messages, setMessages, analysis, onActio
                     ? "bg-slate-900 text-slate-100 rounded-tr-none border border-slate-850"
                     : "bg-slate-900/50 text-slate-200 border border-slate-800 rounded-tl-none"
                 }`}>
-                  {formatText(msg.content)}
+                  <div className="markdown-body career-chat-md">
+                    <Markdown>{msg.content}</Markdown>
+                  </div>
                 </div>
                 <span className={`text-[8.5px] text-slate-500 block ${isUser ? "text-start" : "text-end"}`}>
                   {msg.timestamp}
@@ -348,7 +360,7 @@ export default function AICoach({ lang, messages, setMessages, analysis, onActio
                 <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                 <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                 <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"></span>
-                <span className="text-[11px] text-slate-400 pl-1">{t.coachTyping}</span>
+                <span className="text-[11px] text-slate-400 pl-1">{t.uploadingPhoto}</span>
               </div>
             </div>
           </div>
@@ -356,42 +368,29 @@ export default function AICoach({ lang, messages, setMessages, analysis, onActio
         <div ref={scrollRef} />
       </div>
       
-      {/* Preset Suggested chips & Input zone */}
+      {/* Input zone */}
       <div className="p-3.5 border-t border-slate-850 bg-slate-950/80 shrink-0 space-y-3.5">
-        
-        {/* Suggestion prompt chips (only show if chat contains few records) */}
-        {messages.length < 5 && (
-          <div className="space-y-2.5">
-            <span className="text-[9px] text-slate-500 font-mono tracking-wider uppercase block">
-              {isRtl ? "نصائح نقر سريعة للحكام:" : "Quick click Q&As:"}
-            </span>
-            <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
-              {presets.map((preset, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSend(preset)}
-                  disabled={loading}
-                  className="text-[10px] md:text-[11px] whitespace-nowrap px-3 py-1.5 rounded-xl bg-slate-900/40 hover:bg-slate-900 active:scale-95 text-slate-300 border border-slate-800 hover:border-indigo-500/20 transition-all cursor-pointer shrink-0 text-start font-medium"
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
+        
         {/* Attachments Preview */}
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-2">
-            {attachments.map((file, idx) => (
-              <div key={idx} className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 text-[10px] text-slate-300">
-                <Paperclip className="w-3 h-3 text-indigo-400" />
-                <span className="truncate max-w-[120px]">{file.name}</span>
-                <button onClick={() => removeAttachment(idx)} className="text-slate-500 hover:text-rose-400 transition-colors cursor-pointer">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+            {attachments.map((file, idx) => {
+              const isImage = file.type.startsWith('image/');
+              return (
+                <div key={idx} className="relative flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 text-[10px] text-slate-300 group">
+                  {isImage ? (
+                    <img src={URL.createObjectURL(file)} alt="preview" className="w-6 h-6 object-cover rounded" />
+                  ) : (
+                    <Paperclip className="w-3 h-3 text-indigo-400" />
+                  )}
+                  <span className="truncate max-w-[120px] font-medium text-slate-200">{file.name}</span>
+                  <button onClick={() => removeAttachment(idx)} className="text-slate-500 hover:text-rose-400 transition-colors cursor-pointer bg-slate-800/80 rounded-full p-0.5">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -445,15 +444,6 @@ export default function AICoach({ lang, messages, setMessages, analysis, onActio
           </button>
         </form>
       </div>
-      
-      {showReportPreview && (
-        <ReportPreviewModal 
-          lang={lang}
-          messages={messages}
-          onClose={() => setShowReportPreview(false)}
-          userName={auth.currentUser?.displayName || "Nashmi User"}
-        />
-      )}
     </div>
   );
 }
