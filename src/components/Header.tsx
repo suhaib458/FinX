@@ -5,9 +5,7 @@ import {
   Globe,
   Bell,
   Activity,
-  Briefcase,
-  ShieldAlert,
-  MessageSquare
+  Briefcase
 } from "lucide-react";
 import { User } from "firebase/auth";
 
@@ -37,8 +35,8 @@ export interface AppNotification {
 export default function Header({ lang, setLang, setActiveTab, appName }: HeaderProps) {
   const isRtl = lang === "ar";
   
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const [notifications, setNotifications] = useState<AppNotification[]>([
     {
@@ -57,7 +55,7 @@ export default function Header({ lang, setLang, setActiveTab, appName }: HeaderP
       type: 'career',
       isRead: false,
       time: lang === 'ar' ? 'منذ يوم' : '1d ago',
-      linkTab: 'career'
+      linkTab: 'coach'
     },
     {
       id: "n3",
@@ -71,43 +69,36 @@ export default function Header({ lang, setLang, setActiveTab, appName }: HeaderP
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const handleMarkAsRead = (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-  };
-
-  const handleMarkAllAsRead = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-  };
-
-  const handleNotificationClick = (n: AppNotification) => {
-    handleMarkAsRead(n.id);
-    if (n.linkTab) setActiveTab(n.linkTab);
-    setNotificationsOpen(false);
-  };
-
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, right: 0 } as any);
 
   const calculatePosition = () => {
-    if (notifRef.current) {
-      const rect = notifRef.current.getBoundingClientRect();
+    if (menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect();
       let left: number | string = 'auto';
       let right: number | string = 'auto';
+      const dropdownWidth = 260; // compact width
       
       if (window.innerWidth < 400) {
         left = 16;
+        right = 16; // stretch or auto
       } else {
         if (isRtl) {
-          right = window.innerWidth - rect.right;
+          right = window.innerWidth - rect.right - (dropdownWidth / 2) + (rect.width / 2);
+          if (right as number < 16) {
+             right = 16;
+          }
         } else {
-          left = rect.left;
+          left = rect.left - (dropdownWidth / 2) + (rect.width / 2);
+          if ((left as number) + dropdownWidth > window.innerWidth - 16) {
+            left = window.innerWidth - dropdownWidth - 16;
+          }
+          if (left as number < 16) left = 16;
         }
       }
 
       setDropdownPos({
-        top: rect.bottom + 8,
+        top: rect.bottom + 12,
         left,
         right,
       });
@@ -115,7 +106,7 @@ export default function Header({ lang, setLang, setActiveTab, appName }: HeaderP
   };
 
   useEffect(() => {
-    if (notificationsOpen) {
+    if (menuOpen) {
       calculatePosition();
       window.addEventListener('resize', calculatePosition);
       window.addEventListener('scroll', calculatePosition, true);
@@ -124,15 +115,15 @@ export default function Header({ lang, setLang, setActiveTab, appName }: HeaderP
         window.removeEventListener('scroll', calculatePosition, true);
       };
     }
-  }, [notificationsOpen, isRtl]);
+  }, [menuOpen, isRtl]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
-        notifRef.current && !notifRef.current.contains(e.target as Node) &&
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
         dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
       ) {
-        setNotificationsOpen(false);
+        setMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -140,38 +131,34 @@ export default function Header({ lang, setLang, setActiveTab, appName }: HeaderP
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#020617]/90 backdrop-blur-2xl border-b border-slate-800/40 shadow-[0_4px_30px_rgba(0,0,0,0.1)] transition-all">
+    <header className="sticky top-0 z-50 w-full bg-white dark:bg-[#020617]/90 backdrop-blur-2xl border-b border-slate-200/60 dark:border-slate-800/40 shadow-sm dark:shadow-[0_4px_30px_rgba(0,0,0,0.1)] transition-all">
       <div 
         className="flex items-center justify-between px-5 sm:px-8 py-3 w-full max-w-7xl mx-auto h-[72px] sm:h-20" 
         dir="ltr"
       >
-        {/* LEFT SIDE: Settings, Notifications, Language */}
-        <div className="flex items-center gap-3" dir={isRtl ? 'rtl' : 'ltr'}>
-          <button 
-            onClick={() => setActiveTab("settings")}
-            className="p-2.5 rounded-full bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 transition-all active:scale-95 flex items-center justify-center cursor-pointer shadow-sm hover:shadow-md"
-            title={lang === "ar" ? "الإعدادات" : "Settings"}
-          >
-            <SettingsIcon className="w-5 h-5 text-slate-400" />
-          </button>
+        {/* LEFT SIDE: Unified Menu Button */}
+        <div className="flex items-center gap-3">
 
-          {/* Notifications Area */}
-          <div ref={notifRef} className="relative">
+          {/* Unified Settings & Menu Area */}
+          <div ref={menuRef} className="relative">
             <button 
-              onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className={`relative p-2.5 rounded-full border transition-all duration-200 active:scale-95 focus:outline-none flex items-center justify-center shadow-sm hover:shadow-md ${notificationsOpen ? 'bg-slate-800 border-slate-700 text-indigo-400' : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-slate-200 hover:bg-slate-800'}`}
-              title={lang === "ar" ? "الإشعارات" : "Notifications"}
+              onClick={() => setMenuOpen(!menuOpen)}
+              className={`relative p-2.5 sm:px-4 sm:py-2.5 rounded-full border transition-all duration-300 active:scale-95 focus:outline-none flex items-center justify-center gap-2.5 shadow-sm hover:shadow-md ${menuOpen ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-indigo-600 dark:text-indigo-400' : 'bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800/80'}`}
+              title={lang === "ar" ? "القائمة والإعدادات" : "Menu & Settings"}
             >
-              <Bell className="w-5 h-5" />
+              <SettingsIcon className={`w-5 h-5 transition-transform duration-500 ease-out ${menuOpen ? 'rotate-90' : 'rotate-0'}`} />
+              <span className="text-sm font-semibold hidden sm:block tracking-wide">
+                {lang === "ar" ? "القائمة" : "Menu"}
+              </span>
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-500 ring-2 ring-[#020617]"></span>
+                <span className="absolute sm:top-2 sm:right-2.5 top-1.5 right-1.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 ring-2 ring-[#020617] shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span>
                 </span>
               )}
             </button>
 
-            {/* Notifications Dropdown Panel */}
+            {/* Unified Dropdown Panel */}
             {typeof document !== 'undefined' && createPortal(
               <div 
                 ref={dropdownRef}
@@ -182,83 +169,105 @@ export default function Header({ lang, setLang, setActiveTab, appName }: HeaderP
                   right: dropdownPos.right !== 'auto' ? `${dropdownPos.right}px` : 'auto',
                   zIndex: 999999,
                 }}
-                className={`w-[calc(100vw-2rem)] max-w-[360px] sm:max-w-[380px] bg-[#0f172a] border border-slate-800/80 rounded-xl shadow-2xl shadow-black/50 overflow-hidden transform transition-all duration-200 ${notificationsOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}
+                className={`w-[240px] sm:w-[260px] max-w-[calc(100vw-2rem)] max-h-[250px] flex flex-col bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-xl border border-slate-200/60 dark:border-slate-800/60 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] overflow-hidden transform transition-all duration-200 ease-out origin-top ${menuOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-1 pointer-events-none'}`}
+                dir={isRtl ? "rtl" : "ltr"}
               >
-                <div className="flex items-center justify-between p-4 border-b border-slate-800/80 bg-slate-900/50">
-                  <span className="text-sm font-semibold text-slate-200">
-                    {lang === 'ar' ? 'الإشعارات' : 'Notifications'}
-                  </span>
-                  {unreadCount > 0 && (
-                    <button 
-                      onClick={handleMarkAllAsRead}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors cursor-pointer"
-                    >
-                      {lang === 'ar' ? 'تحديد الكل كمقروء' : 'Mark all as read'}
-                    </button>
-                  )}
-                </div>
-                
-                <div className="max-h-[350px] overflow-y-auto no-scrollbar">
-                  {notifications.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-8 text-center text-slate-500">
-                      <Bell className="w-10 h-10 mb-3 opacity-20" />
-                      <span className="text-sm">
-                        {lang === 'ar' ? 'لا توجد إشعارات جديدة' : 'No new notifications'}
+                {/* Compact Quick Actions Menu */}
+                <div className="p-1.5 flex flex-col gap-0.5 relative z-10 w-full animate-in fade-in duration-300">
+                  {/* Internal top gradient flare */}
+                  <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent opacity-50" />
+                  
+                  {/* Profile & Settings (Existing) */}
+                  <button 
+                    onClick={() => { setMenuOpen(false); setActiveTab("settings"); }}
+                    className="w-full flex items-center justify-between p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded flex items-center justify-center bg-slate-200/50 dark:bg-[#0f172a] border border-slate-200/60 dark:border-slate-800/60 shadow-sm shrink-0">
+                        <SettingsIcon className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300 group-hover:rotate-45 transition-transform duration-500" />
+                      </div>
+                      <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-200">
+                        {lang === 'ar' ? 'الإعدادات والتفضيلات' : 'Profile & Settings'}
                       </span>
                     </div>
-                  ) : (
-                    <div className="flex flex-col">
-                      {notifications.map(n => (
-                        <div 
-                          key={n.id}
-                          onClick={() => handleNotificationClick(n)}
-                          className={`p-4 border-b border-slate-800/50 hover:bg-slate-800/50 cursor-pointer transition-colors relative flex gap-3.5 ${!n.isRead ? 'bg-slate-900/80' : ''}`}
-                        >
-                          {!n.isRead && (
-                            <div className={`absolute top-1/2 -translate-y-1/2 ${isRtl ? 'right-1.5' : 'left-1.5'} w-1.5 h-1.5 bg-indigo-500 rounded-full`} />
-                          )}
-                          <div className={`flex items-center justify-center w-10 h-10 rounded-full shrink-0 mt-0.5 ${
-                            n.type === 'health' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
-                            n.type === 'career' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                            n.type === 'security' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                            'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                          }`}>
-                            {n.type === 'health' ? <Activity className="w-4 h-4" /> : 
-                             n.type === 'career' ? <Briefcase className="w-4 h-4" /> :
-                             n.type === 'security' ? <ShieldAlert className="w-4 h-4" /> :
-                             <MessageSquare className="w-4 h-4" />}
-                          </div>
-                          <div className="flex-1 flex flex-col min-w-0" style={{ textAlign: isRtl ? 'right' : 'left' }}>
-                            <span className={`text-[13px] font-semibold truncate ${!n.isRead ? 'text-slate-200' : 'text-slate-300'}`}>
-                              {n.title}
-                            </span>
-                            <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed whitespace-pre-wrap">
-                              {n.message}
-                            </p>
-                            <span className="text-[10px] text-slate-500 mt-2 font-medium">
-                              {n.time}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                  </button>
+
+                  <div className="h-px w-full bg-slate-100 dark:bg-slate-800/60 my-0.5" />
+
+                  {/* Notifications */}
+                  <button 
+                    onClick={() => { setMenuOpen(false); /* maybe open notifications page if it existed, but just close for now or handle appropriately */ }}
+                    className="w-full flex items-center justify-between p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded flex items-center justify-center bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm shrink-0">
+                        <Bell className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
+                      </div>
+                      <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-200">
+                        {lang === 'ar' ? 'الإشعارات' : 'Notifications'}
+                      </span>
                     </div>
-                  )}
+                    {unreadCount > 0 && (
+                      <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center justify-center min-w-[16px] h-4">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Financial Health */}
+                  <button 
+                    onClick={() => { setMenuOpen(false); setActiveTab("healthScore"); }}
+                    className="w-full flex items-center justify-between p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm shrink-0">
+                        <Activity className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-300" />
+                      </div>
+                      <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-200">
+                        {lang === 'ar' ? 'الصحة المالية' : 'Financial Health'}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Job Match */}
+                  <button 
+                    onClick={() => { setMenuOpen(false); setActiveTab("coach"); }}
+                    className="w-full flex items-center justify-between p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded flex items-center justify-center bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm shrink-0">
+                        <Briefcase className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300" />
+                      </div>
+                      <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-200">
+                        {lang === 'ar' ? 'مواءمة وظيفية' : 'Job Match'}
+                      </span>
+                    </div>
+                  </button>
+
+                  <div className="h-px w-full bg-slate-100 dark:bg-slate-800/60 my-0.5" />
+
+                  {/* Language toggle kept slim at bottom */}
+                  <button 
+                    onClick={() => { setLang(lang === "ar" ? "en" : "ar"); setMenuOpen(false); }}
+                    className="w-full flex items-center justify-between p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded flex items-center justify-center bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 shadow-sm shrink-0">
+                        <Globe className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 group-hover:rotate-180 transition-transform duration-700" />
+                      </div>
+                      <span className="text-[12px] font-semibold text-slate-800 dark:text-slate-200">
+                        {lang === 'ar' ? 'تغيير اللغة' : 'Change Language'}
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                      {lang === 'ar' ? 'EN' : 'AR'}
+                    </span>
+                  </button>
                 </div>
               </div>,
               document.body
             )}
           </div>
-
-          <button
-            onClick={() => setLang(lang === "ar" ? "en" : "ar")}
-            className="group flex items-center gap-2 px-4 py-2.5 rounded-full bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer shadow-sm hover:shadow-md"
-            title={lang === "ar" ? "Switch to English" : "التبديل للعربية"}
-          >
-            <Globe className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
-            <span className="text-xs font-bold uppercase tracking-widest font-mono">
-              {lang === "ar" ? "EN" : "AR"}
-            </span>
-          </button>
         </div>
 
         {/* RIGHT SIDE: FinX Logo & Name */}
@@ -267,11 +276,11 @@ export default function Header({ lang, setLang, setActiveTab, appName }: HeaderP
           onClick={() => setActiveTab("home")}
           dir="ltr"
         >
-          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-200 tracking-wide font-sans hidden sm:block">
+          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-200 tracking-wide font-sans hidden sm:block">
             {appName}
           </span>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 group-hover:scale-105 transition-all duration-300">
-            <span className="text-white text-sm font-black font-sans tracking-tight">FX</span>
+            <span className="text-slate-900 dark:text-white text-sm font-black font-sans tracking-tight">FX</span>
           </div>
         </div>
       </div>

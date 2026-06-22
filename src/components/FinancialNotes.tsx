@@ -190,11 +190,11 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
 
   if (isEditing) {
     return (
-      <div className="flex-1 flex flex-col p-4 bg-[#020617] overflow-y-auto">
+      <div className="flex-1 flex flex-col p-4 bg-slate-50 dark:bg-[#020617] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <button 
             onClick={() => setIsEditing(false)}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
             <span className="text-xs font-bold">{t.cancel}</span>
@@ -202,7 +202,7 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
           <button 
             onClick={handleSave}
             disabled={saveLoading}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-800 disabled:text-slate-500 text-white px-4 py-2 rounded-xl transition-colors text-xs font-bold"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-100 dark:bg-slate-800 disabled:text-slate-700 dark:text-slate-400 text-white px-4 py-2 rounded-xl transition-colors text-xs font-bold"
           >
             <Save className="w-4 h-4" />
             {saveLoading ? '...' : t.saveNote}
@@ -215,7 +215,7 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
           placeholder={t.noteTitlePlaceholder}
-          className="bg-transparent text-xl font-bold text-white placeholder-slate-600 focus:outline-none mb-4"
+          className="bg-transparent text-xl font-bold text-slate-900 dark:text-white placeholder-slate-600 focus:outline-none mb-4"
         />
 
         <textarea 
@@ -223,20 +223,20 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
           value={editContent}
           onChange={(e) => setEditContent(e.target.value)}
           placeholder={t.noteContentPlaceholder}
-          className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl p-4 text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 resize-none text-sm leading-relaxed"
+          className="flex-1 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-slate-700 dark:text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 resize-none text-sm leading-relaxed"
         />
       </div>
     );
   }
 
   return (
-    <div className={`flex-1 flex flex-col p-4 bg-[#020617] overflow-y-auto ${isRtl ? 'font-arabic' : 'font-sans'}`}>
+    <div className={`flex-1 flex flex-col p-4 bg-slate-50 dark:bg-[#020617] overflow-y-auto ${isRtl ? 'font-arabic' : 'font-sans'}`}>
       
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-bold text-white">{t.notesTitle}</h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t.notesTitle}</h2>
+          <p className="text-xs text-slate-700 dark:text-slate-400 mt-1">
             {notes.length} {isRtl ? 'ملاحظات' : 'Notes'}
           </p>
         </div>
@@ -251,18 +251,18 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-6">
         <div className="relative flex-1">
-          <Search className={`absolute top-2.5 w-4 h-4 text-slate-500 ${isRtl ? 'right-3' : 'left-3'}`} />
+          <Search className={`absolute top-2.5 w-4 h-4 text-slate-700 dark:text-slate-400 ${isRtl ? 'right-3' : 'left-3'}`} />
           <input 
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t.searchNotes}
-            className={`w-full bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-xl py-2.5 focus:outline-none focus:border-indigo-500 transition-colors ${isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'}`}
+            className={`w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs rounded-xl py-2.5 focus:outline-none focus:border-indigo-500 transition-colors ${isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'}`}
           />
         </div>
         <button 
           onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-          className="w-10 h-10 rounded-xl border border-slate-800 bg-slate-900 flex flex-col items-center justify-center text-slate-400 hover:text-white transition-colors flex-shrink-0"
+          className="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col items-center justify-center text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors flex-shrink-0"
           title={sortOrder === 'desc' ? t.sortNewest : t.sortOldest}
         >
           <ArrowDownUp className="w-4 h-4" />
@@ -271,7 +271,7 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
 
       {errorMsg && (
         <div className="mb-4 bg-red-500/10 border border-red-500/50 rounded-xl p-3 flex items-start gap-2">
-          <span className="text-rose-400 text-xs font-medium leading-relaxed">{errorMsg}</span>
+          <span className="text-rose-600 dark:text-rose-400 text-xs font-medium leading-relaxed">{errorMsg}</span>
         </div>
       )}
 
@@ -280,14 +280,14 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-[40px] rounded-full pointer-events-none"></div>
         
         <div className="flex items-center justify-between mb-3 relative z-10">
-          <h3 className="text-sm font-bold text-indigo-400 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
             <MessageSquareText className="w-5 h-5" />
             {lang === "ar" ? "نظام Nashmi الذكي للرسائل" : "Nashmi SMS Intelligence"}
-            <span className="bg-indigo-500/20 text-indigo-300 text-[10px] px-2 py-0.5 rounded-full border border-indigo-500/30 uppercase tracking-wider font-mono shadow-sm">Pro</span>
+            <span className="bg-indigo-500/20 text-indigo-500 dark:text-indigo-300 text-[10px] px-2 py-0.5 rounded-full border border-indigo-500/30 uppercase tracking-wider font-mono shadow-sm">Pro</span>
           </h3>
         </div>
         
-        <p className="text-xs text-slate-400 mb-4 leading-relaxed max-w-xl">
+        <p className="text-xs text-slate-700 dark:text-slate-400 mb-4 leading-relaxed max-w-xl">
           {lang === "ar" 
             ? "يقوم النظام تلقائياً بتحليل رسائل البنوك، استخراج بيانات الدخل والمصروفات، وتحويلها إلى أهداف وتقارير بأمان." 
             : "The system automatically analyzes bank messages, extracts income and expense data, and securely transforms them into goals and reports."}
@@ -298,7 +298,7 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
             value={smsText}
             onChange={e => setSmsText(e.target.value)}
             placeholder={lang === "ar" ? "الصق رسالة البنك هنا لاستخراج العملية التلقائي (مثال: تم خصم 50 دينار لصالح كريم)..." : "Paste your bank SMS here for auto-extraction (e.g. 50 JOD deducted for Careem)..."}
-            className="w-full bg-[#0f172a]/80 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 focus:outline-none resize-none transition-all placeholder:text-slate-600"
+            className="w-full bg-white dark:bg-[#0f172a]/80 border border-slate-300 dark:border-slate-700/80 rounded-xl p-3 text-sm text-slate-800 dark:text-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 focus:outline-none resize-none transition-all placeholder:text-slate-700 dark:text-slate-400"
             rows={3}
           />
           <button
@@ -324,47 +324,47 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
           <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       ) : filteredNotes.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border border-dashed border-slate-800 rounded-2xl">
-          <div className="w-16 h-16 rounded-full bg-slate-900 flex items-center justify-center mb-4">
-            <NotebookText className="w-8 h-8 text-slate-600" />
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+          <div className="w-16 h-16 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center mb-4">
+            <NotebookText className="w-8 h-8 text-slate-700 dark:text-slate-400" />
           </div>
-          <p className="text-sm text-slate-400">{t.emptyNotes}</p>
+          <p className="text-sm text-slate-700 dark:text-slate-400">{t.emptyNotes}</p>
         </div>
       ) : (
         <div className="space-y-3">
           {filteredNotes.map(note => (
-            <div key={note.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 hover:border-slate-700 transition-all group">
+            <div key={note.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-slate-300 dark:hover:border-slate-700 transition-all group">
               <div className="flex justify-between items-start mb-2">
-                <h3 dir="auto" className="font-bold text-slate-100 text-sm line-clamp-1 flex-1">{note.title}</h3>
+                <h3 dir="auto" className="font-bold text-slate-900 dark:text-slate-100 text-sm line-clamp-1 flex-1">{note.title}</h3>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
                   <button 
                     onClick={() => openEditor(note)}
-                    className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-800 transition-colors shrink-0"
+                    className="p-1.5 text-slate-700 dark:text-slate-400 hover:text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors shrink-0"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                   <button 
                     onClick={() => handleDelete(note.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors shrink-0"
+                    className="p-1.5 text-slate-700 dark:text-slate-400 hover:text-rose-600 dark:text-rose-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors shrink-0"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
               
-              <p dir="auto" className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">
+              <p dir="auto" className="text-xs text-slate-700 dark:text-slate-400 line-clamp-2 mb-3 leading-relaxed">
                 {note.content}
               </p>
 
-              <div className="flex items-center justify-between border-t border-slate-800/60 pt-3">
-                <span className="text-[10px] text-slate-500">
+              <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800/60 pt-3">
+                <span className="text-[10px] text-slate-700 dark:text-slate-400">
                   {new Date(note.updatedAt).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </span>
                 
                 {onSendToCoach && (
                   <button
                     onClick={() => handleAnalyze(note)}
-                    className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded-md transition-colors"
+                    className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded-md transition-colors"
                   >
                     <BrainCircuit className="w-3 h-3" />
                     {t.analyzeWithAI}

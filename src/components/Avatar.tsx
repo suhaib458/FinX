@@ -27,11 +27,11 @@ export default function Avatar({ uid, className = "w-7 h-7", iconClassName = "w-
   }, [uid]);
 
   return (
-    <div className={`rounded-full overflow-hidden bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700 cursor-pointer ${className}`}>
+    <div className={`rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 border border-slate-300 dark:border-slate-700 cursor-pointer ${className}`}>
       {photoURL ? (
         <img src={photoURL} alt="User Avatar" className="w-full h-full object-cover" />
       ) : (
-        <UserIcon className={`text-slate-400 ${iconClassName}`} />
+        <UserIcon className={`text-slate-700 dark:text-slate-400 ${iconClassName}`} />
       )}
     </div>
   );

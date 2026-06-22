@@ -206,7 +206,7 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
 
   // Choose icon representation helper
   const renderScenarioIcon = (type: string, active: boolean) => {
-    const cls = `w-5 h-5 ${active ? "text-white" : "text-slate-400"}`;
+    const cls = `w-5 h-5 ${active ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-400"}`;
     switch (type) {
       case "car": return <Car className={cls} />;
       case "business": return <Briefcase className={cls} />;
@@ -229,13 +229,13 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
     >
       {/* Page Header */}
       <div>
-        <p className="text-[10px] tracking-wider text-slate-400 uppercase font-mono">
+        <p className="text-[10px] tracking-wider text-slate-700 dark:text-slate-400 uppercase font-mono">
           {isRtl ? "محاكاة خيارات ميزانيتك" : "DECISION SIMULATION SANDBOX"}
         </p>
-        <h2 className={`text-xl font-bold text-zinc-100 ${isRtl ? 'font-arabic' : 'font-sans'}`}>
+        <h2 className={`text-xl font-bold text-slate-900 dark:text-zinc-100 ${isRtl ? 'font-arabic' : 'font-sans'}`}>
           {t.scenarioSimulator}
         </h2>
-        <p className="text-[11px] text-slate-400 mt-1">
+        <p className="text-[11px] text-slate-700 dark:text-slate-400 mt-1">
           {t.scenarioDesc}
         </p>
       </div>
@@ -255,7 +255,7 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
                 className={`flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all cursor-pointer ${
                   isActive 
                     ? "bg-gradient-to-tr from-indigo-600 to-blue-700 border-indigo-500 text-white shadow-lg shadow-indigo-500/25 scale-105 z-10" 
-                    : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:bg-slate-800"
+                    : "bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-800"
                 }`}
               >
                 {renderScenarioIcon(sc.type, isActive)}
@@ -269,18 +269,18 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
       </div>
 
       {/* 2. Configure sliders */}
-      <div className="rounded-2xl p-5 bg-slate-900/50 border border-slate-800 space-y-4 hover:border-slate-700 transition-colors">
-        <label className="text-[10px] text-indigo-400 font-extrabold uppercase tracking-wide block border-b border-slate-800/60 pb-1.5 mb-1">
+      <div className="rounded-2xl p-5 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 space-y-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+        <label className="text-[10px] text-indigo-600 dark:text-indigo-400 font-extrabold uppercase tracking-wide block border-b border-slate-200 dark:border-slate-800/60 pb-1.5 mb-1">
           {t.configureDecision} — {getScenarioLabel(activeScenarioId)}
         </label>
 
         {/* Dynamic primary Downpayment / upfront cash slider */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
-            <span className="text-slate-300 font-medium">
+            <span className="text-slate-700 dark:text-slate-300 font-medium">
               {activeScenarioId === "investment" || activeScenarioId === "save" ? (isRtl ? "المبلغ الأولي المبدئي:" : "Initial Base Amount:") : activeScenarioId === "loan" ? (isRtl ? "مبلغ التمويل المقترح:" : "Principal Loan Amount:") : (isRtl ? "الدفعة النقدية الأولى الكاش:" : "Downpayment Cash:")}
             </span>
-            <span className="font-bold text-indigo-400 font-mono">
+            <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">
               {downpayment.toLocaleString()} JOD
             </span>
           </div>
@@ -291,9 +291,9 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
             step={activeScenario.step}
             value={downpayment}
             onChange={(e) => setDownpayment(Number(e.target.value))}
-            className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+            className="w-full h-1.5 bg-white dark:bg-slate-950 rounded-lg appearance-none cursor-pointer accent-indigo-500"
           />
-          <span className="text-[9px] text-slate-500 block">
+          <span className="text-[9px] text-slate-700 dark:text-slate-400 block">
             {activeScenario.min.toLocaleString()} — {activeScenario.max.toLocaleString()} {isRtl ? "د.أ" : "JOD"}
           </span>
         </div>
@@ -301,10 +301,10 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
         {/* Monthly commitment installment slider */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
-            <span className="text-slate-300 font-medium">
+            <span className="text-slate-700 dark:text-slate-300 font-medium">
               {activeScenarioId === "investment" || activeScenarioId === "save" ? (isRtl ? "مبلغ الاستقطاع الشهري:" : "Monthly saving/investing:") : (isRtl ? "القسط الشهري الملتزم به:" : "Monthly Budget Commitment:")}
             </span>
-            <span className="font-bold text-indigo-400 font-mono">
+            <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">
               {monthlyInstallment.toLocaleString()} {isRtl ? "د.أ/شهر" : "JOD/mo"}
             </span>
           </div>
@@ -315,9 +315,9 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
             step={10}
             value={monthlyInstallment}
             onChange={(e) => setMonthlyInstallment(Number(e.target.value))}
-            className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-all"
+            className="w-full h-1.5 bg-white dark:bg-slate-950 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-all"
           />
-          <div className="flex justify-between text-[9px] text-slate-500">
+          <div className="flex justify-between text-[9px] text-slate-700 dark:text-slate-400">
             <span>10 {isRtl ? "د.أ" : "JOD"}</span>
             <span className="text-[#818cf8]">
               {isRtl ? "تأثير شهري" : "Monthly commitment"}
@@ -328,7 +328,7 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
       </div>
 
       {/* 3. Timeline results & Forecast Bars */}
-      <div className="rounded-2xl p-4 bg-slate-900/55 border border-slate-800 space-y-4">
+      <div className="rounded-2xl p-4 bg-slate-900/55 border border-slate-200 dark:border-slate-800 space-y-4">
         <label className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-wide block">
           {t.timelineResults} (5 {isRtl ? "سنوات مقبلة" : "Years Forecast"})
         </label>
@@ -362,56 +362,56 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
         </div>
 
         {/* Dynamic score changes & Advice Certificate stamp */}
-        <div className="pt-3 border-t border-slate-800/80 flex flex-col gap-2">
+        <div className="pt-3 border-t border-slate-300 dark:border-slate-800/80 flex flex-col gap-2">
           
           {/* Before vs After details */}
           <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-400">{isRtl ? "معدل الادخار الشهري المتبقى:" : "Revised Savings Rate:"}</span>
-            <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-850">
-              <span className="text-[10px] text-slate-500 font-mono">
+            <span className="text-slate-700 dark:text-slate-400">{isRtl ? "معدل الادخار الشهري المتبقى:" : "Revised Savings Rate:"}</span>
+            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-850">
+              <span className="text-[10px] text-slate-700 dark:text-slate-400 font-mono">
                 {baseSavingsRate.toFixed(1)}% ➔
               </span>
-              <span className={`font-bold font-mono ${simulatedSavingsRate >= 20 ? "text-indigo-400" : simulatedSavingsRate >= 5 ? "text-amber-400" : "text-rose-400"}`}>
+              <span className={`font-bold font-mono ${simulatedSavingsRate >= 20 ? "text-indigo-600 dark:text-indigo-400" : simulatedSavingsRate >= 5 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}>
                 {simulatedSavingsRate.toFixed(1)}%
               </span>
             </div>
           </div>
 
           <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-400">{t.impactOnScore}</span>
-            <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-850">
-              <span className="text-[10px] text-slate-500 font-mono">
+            <span className="text-slate-700 dark:text-slate-400">{t.impactOnScore}</span>
+            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-850">
+              <span className="text-[10px] text-slate-700 dark:text-slate-400 font-mono">
                 {analysis.healthScore} ➔
               </span>
-              <span className={`font-bold font-mono ${simulatedScore >= 80 ? "text-indigo-400" : simulatedScore >= 60 ? "text-amber-400" : "text-rose-400"}`}>
+              <span className={`font-bold font-mono ${simulatedScore >= 80 ? "text-indigo-600 dark:text-indigo-400" : simulatedScore >= 60 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}>
                 {simulatedScore}
               </span>
             </div>
           </div>
 
           <div className="space-y-1.5 pt-1">
-            <span className="text-[10px] text-slate-500 block">
+            <span className="text-[10px] text-slate-700 dark:text-slate-400 block">
               {t.decisionFeasibility}
             </span>
 
             {feasibility === "perfect" ? (
               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex gap-2.5 items-start">
-                <CheckCircle2 className="w-4.5 h-4.5 text-emerald-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-emerald-300 font-medium leading-relaxed">
+                <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-emerald-500 dark:text-emerald-300 font-medium leading-relaxed">
                   {t.feasiblePerfect} {activeScenarioId === "investment" && (isRtl ? "هذه الخطوة تساهم مباشرة في تعجيل وصولك للحرية المالية." : "This strategy significantly builds emergency buffers.")}
                 </p>
               </div>
             ) : feasibility === "warning" ? (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex gap-2.5 items-start">
-                <AlertTriangle className="w-4.5 h-4.5 text-amber-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-amber-300 font-medium leading-relaxed">
+                <AlertTriangle className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-500 dark:text-amber-300 font-medium leading-relaxed">
                   {t.feasibleWarning} {isRtl ? "احرص على ألا تلتهم الديون أكثر من ثلث رصيدك الفائض تجنباً للضغوط المعيشية المفاجئة." : "Ensure recurring installments never exceed 30% of your left-over cushion."}
                 </p>
               </div>
             ) : (
               <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex gap-2.5 items-start">
-                <XCircle className="w-4.5 h-4.5 text-rose-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-rose-300 font-medium leading-relaxed">
+                <XCircle className="w-4.5 h-4.5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-rose-500 dark:text-rose-300 font-medium leading-relaxed">
                   {t.feasibleDangerous} {isRtl ? "نفقات هذا القرار المضاف تهدد استقرارك برصيد بنكي مكشوف قريباً! لا ينصح به." : "This commitment will deplete your liquidity and might lead to chronic debt cycles soon."}
                 </p>
               </div>
@@ -422,7 +422,7 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
             <button
               onClick={handleSaveToCalendar}
               disabled={addingToCalendar || feasibility === "dangerous"}
-              className={`text-xs px-4 py-2 flex items-center gap-2 rounded-xl transition-all cursor-pointer font-bold ${calendarSuccess ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40"}`}
+              className={`text-xs px-4 py-2 flex items-center gap-2 rounded-xl transition-all cursor-pointer font-bold ${calendarSuccess ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-300" : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40"}`}
             >
               {calendarSuccess ? (
                 <>
@@ -431,7 +431,7 @@ export default function Simulator({ lang, analysis }: SimulatorProps) {
                 </>
               ) : (
                 <>
-                  <CalendarDays className="w-4 h-4 text-indigo-400" />
+                  <CalendarDays className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   {isRtl ? "تحديد كهدف في تقويم جوجل" : "Set Goal in Google Calendar"}
                 </>
               )}

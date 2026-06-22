@@ -1,23 +1,109 @@
 {
   "entities": {
-    "FinNote": {
-      "title": "Financial Note",
-      "description": "User notes",
+    "User": {
+      "title": "User",
+      "description": "User profile and subscription",
       "type": "object",
       "properties": {
+        "photoURL": { "type": "string" },
+        "subscription": {
+          "type": "object",
+          "properties": {
+            "plan": { "type": "string" },
+            "stripeCustomerId": { "type": "string" },
+            "stripeSubscriptionId": { "type": "string" },
+            "status": { "type": "string" },
+            "currentPeriodEnd": { "type": "number" }
+          }
+        }
+      }
+    },
+    "SmsPreferences": {
+      "title": "SmsPreferences",
+      "description": "SMS settings",
+      "type": "object",
+      "properties": {
+        "phoneNumber": { "type": "string" },
+        "smsTrackingEnabled": { "type": "boolean" },
+        "language": { "type": "string" }
+      }
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Chat conversations for AI Coach",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
         "title": { "type": "string" },
+        "messages": { "type": "array" },
+        "lastMessagePreview": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "Financial notes",
+      "type": "object",
+      "properties": {
         "content": { "type": "string" },
         "userId": { "type": "string" },
-        "createdAt": { "type": "number" },
-        "updatedAt": { "type": "number" }
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
       },
-      "required": ["title", "content", "userId", "createdAt", "updatedAt"]
+      "required": ["content", "userId"]
+    },
+    "RewardProfile": {
+      "title": "RewardProfile",
+      "description": "Gamification rewards",
+      "type": "object",
+      "properties": {
+        "points": { "type": "number" },
+        "lifetimePoints": { "type": "number" },
+        "currentStreak": { "type": "number" },
+        "longestStreak": { "type": "number" },
+        "lastActiveDate": { "type": "string" },
+        "achievements": { "type": "array" }
+      }
+    },
+    "RewardActivity": {
+      "title": "RewardActivity",
+      "description": "Reward points earn/spend events",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "pointsAmount": { "type": "number" },
+        "date": { "type": "string" },
+        "metadata": { "type": "object" }
+      }
     }
   },
   "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile mapping"
+    },
+    "/users/{userId}/settings/smsPreferences": {
+      "schema": { "$ref": "#/entities/SmsPreferences" },
+      "description": "SMS and language configuration"
+    },
     "/users/{userId}/notes/{noteId}": {
-      "schema": { "$ref": "#/entities/FinNote" },
-      "description": "User notes collection"
+      "schema": { "$ref": "#/entities/Note" },
+      "description": "User's financial notes"
+    },
+    "/users/{userId}/rewardProfile/main": {
+      "schema": { "$ref": "#/entities/RewardProfile" },
+      "description": "User's gamification points"
+    },
+    "/users/{userId}/rewardsActivity/{activityId}": {
+      "schema": { "$ref": "#/entities/RewardActivity" },
+      "description": "Log of reward activities"
+    },
+    "/conversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/Conversation" },
+      "description": "Chat conversations"
     }
   }
 }

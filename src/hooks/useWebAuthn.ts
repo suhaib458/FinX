@@ -1,5 +1,20 @@
 import { useState, useEffect } from 'react';
 
+export interface WebAuthnResult {
+  success: boolean;
+  message?: string;
+  code?: string;
+  errorDetail?: any;
+}
+
+export const isRunningInIframe = (): boolean => {
+  try {
+    return window.self !== window.top;
+  } catch (e) {
+    return true; // Access denied usually implies it is in a cross-origin iframe
+  }
+};
+
 /**
  * Custom hook to safely generate and authenticate a simple passkey using WebAuthn.
  * This directly utilizes Native OS capabilities (TouchID, FaceID, Windows Hello).
@@ -23,8 +38,46 @@ export function useWebAuthn() {
     return array;
   };
 
-  const registerPasskey = async (userId: string, email: string): Promise<boolean> => {
-    if (!isSupported) return false;
+  const parseAuthError = (err: any): WebAuthnResult => {
+    console.error("Biometric Auth Error:", err);
+    if (!err) return { success: false, message: 'Unknown error occurred', code: 'UNKNOWN' };
+    
+    if (err.name === 'NotAllowedError' || (err.message && err.message.includes('publickey-credentials-'))) {
+      if (err.message && err.message.includes('publickey-credentials-')) {
+         return { success: false, message: 'Biometric login requires the app to be opened in a new tab (not inside the preview iframe).', code: 'IFRAME_RESTRICTED', errorDetail: err };
+      }
+      
+      try {
+        if (window.self !== window.top) {
+           return { success: false, message: 'Biometric login requires the app to be opened in a new tab (not inside the preview iframe).', code: 'IFRAME_RESTRICTED', errorDetail: err };
+        }
+      } catch (e) {
+         // Accessing window.top can throw in cross-origin iframes
+         return { success: false, message: 'Biometric login requires the app to be opened in a new tab (not inside the preview iframe).', code: 'IFRAME_RESTRICTED', errorDetail: err };
+      }
+      
+      return { success: false, message: 'Operation cancelled or permission denied.', code: 'USER_CANCELLED', errorDetail: err };
+    }
+    
+    if (err.name === 'InvalidStateError') {
+      return { success: false, message: 'A passkey is already registered for this device.', code: 'ALREADY_REGISTERED', errorDetail: err };
+    }
+
+    if (err.name === 'NotSupportedError') {
+      return { success: false, message: 'Your device does not support biometric authentication or no fingerprints/faces are enrolled.', code: 'NOT_SUPPORTED', errorDetail: err };
+    }
+    
+    if (err.name === 'SecurityError') {
+      return { success: false, message: 'Biometric authentication requires a secure connection (HTTPS).', code: 'INSECURE_CONTEXT', errorDetail: err };
+    }
+
+    return { success: false, message: err.message || 'Authentication failed due to device or hardware issues.', code: 'HARDWARE_ERROR', errorDetail: err };
+  };
+
+  const registerPasskey = async (userId: string, email: string): Promise<WebAuthnResult> => {
+    if (!isSupported) {
+      return { success: false, message: 'Biometric hardware unavailable or not supported on this device.', code: 'NOT_SUPPORTED' };
+    }
     
     try {
       const challenge = generateRandomBuffer();
@@ -58,20 +111,20 @@ export function useWebAuthn() {
         publicKey: createOptions
       });
 
-      // If we get here, Passkey was successfully generated and stored on the device.
-      // E.g., TouchID was actively successful!
-      return !!credential;
-    } catch (err: any) {
-      console.warn("Passkey registration failed or was cancelled:", err.message || err);
-      if (err.name === 'NotAllowedError' || (err.message && err.message.includes('publickey-credentials-create'))) {
-          alert("Biometric login cannot be set up within this preview. Please open the app in a new tab to enable Passkeys.");
+      if (credential) {
+         return { success: true, message: 'Biometric authentication successfully activated.' };
       }
-      return false;
+      
+      return { success: false, message: 'Activation failed. Credential not generated.', code: 'CREATION_FAILED' };
+    } catch (err: any) {
+      return parseAuthError(err);
     }
   };
 
-  const loginWithPasskey = async (): Promise<boolean> => {
-    if (!isSupported) return false;
+  const loginWithPasskey = async (): Promise<WebAuthnResult> => {
+    if (!isSupported) {
+      return { success: false, message: 'Biometric hardware unavailable or not supported on this device.', code: 'NOT_SUPPORTED' };
+    }
 
     try {
       const challenge = generateRandomBuffer();
@@ -87,14 +140,12 @@ export function useWebAuthn() {
         publicKey: getOptions
       });
 
-      // Biometric authenticated successfully!
-      return !!assertion;
-    } catch (err: any) {
-      console.warn("Passkey login failed or was cancelled:", err.message || err);
-      if (err.name === 'NotAllowedError' || (err.message && err.message.includes('publickey-credentials-get'))) {
-          alert("Biometric login cannot be used within this preview. Please open the app in a new tab to use Passkeys.");
+      if (assertion) {
+        return { success: true };
       }
-      return false;
+      return { success: false, message: 'Authentication failed. No credential returned.', code: 'AUTH_FAILED' };
+    } catch (err: any) {
+      return parseAuthError(err);
     }
   };
 

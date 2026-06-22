@@ -50,6 +50,11 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  metadata?: any;
+  isError?: boolean;
+  isCvError?: boolean;
+  rawAttachments?: any[];
+  rawPrompt?: string;
 }
 
 export interface FinNote {

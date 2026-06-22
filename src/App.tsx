@@ -11,7 +11,9 @@ import {
   PlayCircle,
   LogOut,
   NotebookText,
-  Briefcase
+  Briefcase,
+  ScanLine,
+  Building2
 } from "lucide-react";
 
 import DeviceShell from "./components/DeviceShell";
@@ -23,6 +25,7 @@ import HealthRatio from "./components/HealthRatio";
 import StatementParser from "./components/StatementParser";
 import SettingsTab from "./components/SettingsTab";
 import LaunchVideo from "./components/LaunchVideo";
+import WelcomeScreen from "./components/WelcomeScreen";
 import Auth from "./components/Auth";
 import Avatar from "./components/Avatar";
 
@@ -30,11 +33,18 @@ import { auth } from "./lib/firebase";
 import { onAuthStateChanged, User, signOut } from "firebase/auth";
 
 import FinancialNotes from "./components/FinancialNotes";
-
-import CareerIntelligence from "./components/CareerIntelligence";
+import ServicesTab from "./components/ServicesTab";
+import MagneticWrapper from "./components/MagneticWrapper";
 import Header from "./components/Header";
 import NashmiProTab from "./components/NashmiProTab";
 import RewardsTab from "./components/RewardsTab";
+import WorkspaceCalendar from "./components/WorkspaceCalendar";
+import WorkspaceChat from "./components/WorkspaceChat";
+import CareerProfileScreen from "./components/CareerProfileScreen";
+import AIInterviewSimulator from "./components/AIInterviewSimulator";
+import ProjectsTab from "./components/ProjectsTab";
+import NotificationCenter from "./components/NotificationCenter";
+import { getFinancialProfile, saveFinancialProfile } from "./lib/finance";
 import { translations } from "./translations";
 import { FinancialAnalysis, ChatMessage, Transaction, SpendingCategory } from "./types";
 import { 
@@ -74,20 +84,20 @@ export default function App() {
   });
 
   // 3. Navigation State
-  const [activeTab, setActiveTab] = useState<"home" | "coach" | "simulation" | "career" | "healthScore" | "upload" | "settings" | "notes" | "nashmiPro" | "rewards">("home");
-
-  // 4. Demo Profile Engine State
-  const [profileType, setProfileType] = useState<"balanced" | "debt">("balanced");
+  const [activeTab, setActiveTab] = useState<"home" | "coach" | "simulation" | "healthScore" | "upload" | "settings" | "notes" | "nashmiPro" | "rewards" | "services" | "calendar" | "chat" | "projects" | "careerProfile" | "interviewSimulator" | "notifications">("home");
 
   // 5. Consolidated Financial Analysis State
   const [analysis, setAnalysis] = useState<FinancialAnalysis>(perfectProfile);
 
   // 6. Conversational chat history state
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [careerChatHistory, setCareerChatHistory] = useState<ChatMessage[]>([]);
+  const [activeCoachChatId, setActiveCoachChatId] = useState<string | null>(null);
+  const [pendingCoachPrompt, setPendingCoachPrompt] = useState<string | null>(null);
+
 
   // 7. Cinematic Launch Video State
   const [showLaunchVideo, setShowLaunchVideo] = useState<boolean>(false);
+  const [showWelcome, setShowWelcome] = useState<boolean>(false);
 
   // 8. Engagement & Pro State
   const [isPro, setIsPro] = useState<boolean>(() => {
@@ -110,6 +120,11 @@ export default function App() {
           const profile = await RewardsService.initializeProfile(currentUser.uid);
           const { streakUpdated, newStreak } = await RewardsService.processDailyStreak(currentUser.uid, profile);
           
+          const finProfile = await getFinancialProfile(currentUser.uid);
+          if (finProfile) {
+            setAnalysis(finProfile);
+          }
+
           if (streakUpdated && newStreak >= 7) {
              await RewardsService.unlockAchievement(currentUser.uid, "7_day_streak", "7-Day Streak", 50, isPro);
           }
@@ -117,10 +132,16 @@ export default function App() {
           unsubProfile = RewardsService.subscribeToProfile(currentUser.uid, (data) => {
             setRewardProfile(data);
           });
+          
+          if (!sessionStorage.getItem("finx_welcome_shown")) {
+            setShowWelcome(true);
+            sessionStorage.setItem("finx_welcome_shown", "true");
+          }
         } catch (e) {
           console.error("Error setting up Rewards ecosystem:", e);
         }
       } else {
+        setActiveTab("home");
         if (unsubProfile) unsubProfile();
       }
 
@@ -133,7 +154,16 @@ export default function App() {
     };
   }, [isPro]);
 
+  // Auto-save Financial Profile when it changes
+  useEffect(() => {
+    if (user && analysis && analysis.monthlyIncome > 0) {
+      saveFinancialProfile(user.uid, analysis);
+    }
+  }, [analysis, user]);
+
   const handleLogout = async () => {
+    sessionStorage.removeItem("finx_welcome_shown");
+    setActiveTab("home");
     await signOut(auth);
   };
 
@@ -141,19 +171,17 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("finx_language", lang);
     document.documentElement.lang = lang;
-    
+    document.documentElement.dir = 'ltr'; // FORCE LTR layout at the root level
+
     // Choose the appropriate profile template centered on local language
-    if (profileType === "balanced") {
-      setAnalysis(lang === "ar" ? perfectProfile : perfectProfileEnglish);
-    } else {
-      setAnalysis(lang === "ar" ? debtProfile : debtProfileEnglish);
-    }
-  }, [lang, profileType]);
+    setAnalysis(lang === "ar" ? perfectProfile : perfectProfileEnglish);
+  }, [lang]);
 
   // Handle onboarding status
   const completeOnboarding = () => {
     setShowOnboarding(false);
     localStorage.setItem("finx_onboarding_dismissed", "true");
+    setActiveTab("home");
   };
 
   const resetOnboarding = () => {
@@ -233,43 +261,46 @@ export default function App() {
 
   // Clear transactional files history
   const handleClearTransactions = () => {
-    const baseProfile = profileType === "balanced"
-      ? (lang === "ar" ? perfectProfile : perfectProfileEnglish)
-      : (lang === "ar" ? debtProfile : debtProfileEnglish);
-    
-    setAnalysis(baseProfile);
+    setAnalysis(lang === "ar" ? perfectProfile : perfectProfileEnglish);
   };
 
-  // Switch demo account profiles elegantly
-  const handleLoadProfile = (type: "balanced" | "debt") => {
-    setProfileType(type);
-    if (type === "balanced") {
-      setAnalysis(lang === "ar" ? perfectProfile : perfectProfileEnglish);
-    } else {
-      setAnalysis(lang === "ar" ? debtProfile : debtProfileEnglish);
-    }
+  const handleUpdateTransactionCategory = (index: number, newCategory: string) => {
+    setAnalysis(prev => {
+      const newTransactions = [...prev.transactions];
+      newTransactions[index].category = newCategory;
+      return { ...prev, transactions: newTransactions };
+    });
   };
 
   // Render proper screen tab view
   const renderActiveScreen = () => {
     switch (activeTab) {
+      case "projects":
+        return <ProjectsTab lang={lang} user={user} />;
       case "home":
         return <Dashboard lang={lang} analysis={analysis} setActiveTab={setActiveTab} />;
       case "coach":
-        return <AICoach lang={lang} messages={chatHistory} setMessages={setChatHistory} analysis={analysis} onAction={() => addPoints(10)} />;
+        return <AICoach 
+                 lang={lang} 
+                 messages={chatHistory} 
+                 setMessages={setChatHistory} 
+                 activeConversationId={activeCoachChatId} 
+                 setActiveConversationId={setActiveCoachChatId} 
+                 analysis={analysis} 
+                 onAction={() => addPoints(10)} 
+                 pendingPrompt={pendingCoachPrompt}
+                 clearPendingPrompt={() => setPendingCoachPrompt(null)}
+               />;
       case "notes":
         return <FinancialNotes 
            lang={lang} 
            onSendToCoach={(prompt: string) => {
-             const newMsg = { id: Date.now().toString(), role: "user" as const, content: prompt, timestamp: new Date().toISOString() };
-             setChatHistory(prev => [...prev, newMsg]);
+             setPendingCoachPrompt(prompt);
              addPoints(20);
              setActiveTab("coach");
            }}
            onAddTransaction={(tx) => { handleAddTransaction(tx); addPoints(30); }}
         />;
-      case "career":
-        return <CareerIntelligence lang={lang} analysis={analysis} messages={careerChatHistory} setMessages={setCareerChatHistory} onAction={() => addPoints(15)} />;
       case "simulation":
         return <Simulator lang={lang} analysis={analysis} />;
       case "healthScore":
@@ -280,26 +311,51 @@ export default function App() {
             lang={lang} 
             transactions={analysis.transactions} 
             onAddTransaction={handleAddTransaction}
+            onUpdateTransactionCategory={handleUpdateTransactionCategory}
             onClearTransactions={handleClearTransactions}
             onUpdateAnalysis={setAnalysis}
           />
         );
       case "nashmiPro":
         return <NashmiProTab lang={lang} isPro={isPro} />;
+      case "services":
+        return <ServicesTab 
+          lang={lang} 
+          onNavigate={(tab) => setActiveTab(tab)}
+          onSendToCoach={(prompt: string) => {
+            setPendingCoachPrompt(prompt);
+            setActiveTab("coach");
+          }}
+        />;
       case "rewards":
         return <RewardsTab lang={lang} isPro={isPro} profile={rewardProfile} uid={user?.uid} />;
+      case "calendar":
+        return <WorkspaceCalendar lang={lang} />;
+      case "chat":
+        return <WorkspaceChat lang={lang} />;
       case "settings":
         return (
           <SettingsTab 
             lang={lang} 
             setLang={setLang} 
-            activeProfileName={profileType} 
-            onLoadProfile={handleLoadProfile}
             onResetOnboarding={resetOnboarding}
             onLogout={handleLogout}
             onNavigateRewards={() => setActiveTab('rewards')}
+            onNavigateSimulation={() => setActiveTab('simulation')}
+            onNavigateNotes={() => setActiveTab('notes')}
+            onNavigateCareerProfile={() => setActiveTab('careerProfile')}
+            onNavigateInterviewSimulator={() => setActiveTab('interviewSimulator')}
+            onNavigateProjects={() => setActiveTab('projects')}
+            onNavigateNotifications={() => setActiveTab('notifications')}
+            onNavigateCoach={() => setActiveTab('coach')}
           />
         );
+      case "careerProfile":
+        return <CareerProfileScreen lang={lang} />;
+      case "interviewSimulator":
+        return <AIInterviewSimulator lang={lang} />;
+      case "notifications":
+        return <NotificationCenter lang={lang} />;
       default:
         return <Dashboard lang={lang} analysis={analysis} setActiveTab={setActiveTab} />;
     }
@@ -320,7 +376,7 @@ export default function App() {
   if (authChecking) {
     return (
       <DeviceShell lang={lang}>
-        <div className="flex-1 flex items-center justify-center bg-[#020617] text-slate-400">
+        <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-[#020617] text-slate-700 dark:text-slate-400">
           <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       </DeviceShell>
@@ -335,25 +391,43 @@ export default function App() {
     );
   }
 
+  if (showWelcome) {
+    return (
+      <DeviceShell lang={lang}>
+        <WelcomeScreen 
+          lang={lang} 
+          name={user.displayName || user.email?.split('@')[0] || null} 
+          onComplete={() => {
+            setShowWelcome(false);
+            setActiveTab("home");
+          }} 
+        />
+      </DeviceShell>
+    );
+  }
+
   // Common navigation bar metadata items
   const tabs = [
     { id: "home", label: t.home, icon: <Home className="w-5 h-5" /> },
-    { id: "career", label: t.career || "Career", icon: <Briefcase className="w-5 h-5" /> },
-    { id: "notes", label: t.notes || "Notes", icon: <NotebookText className="w-5 h-5" /> },
-    { id: "simulation", label: t.simulation, icon: <TrendingUp className="w-5 h-5" /> },
+    { id: "services", label: lang === "ar" ? "الخدمات" : "Services", icon: <Briefcase className="w-5 h-5" /> },
     { id: "coach", label: t.coach, icon: <BrainCircuit className="w-5 h-5" /> },
+    { id: "projects", label: lang === "ar" ? "المشاريع والاستثمار" : "Projects", icon: <Building2 className="w-5 h-5" /> },
   ] as const;
 
   const getTabTitle = () => {
     switch (activeTab) {
+      case "projects": return lang === "ar" ? "المشاريع والاستثمار" : "Projects & Investments";
       case "home": return t.home;
-      case "career": return t.career || "Career";
+      case "services": return lang === "ar" ? "الخدمات" : "Services";
       case "notes": return t.notes || "Notes";
       case "simulation": return t.simulation;
       case "coach": return t.coach;
+      case "careerProfile": return lang === "ar" ? "ملفي المهني" : "Career Profile";
       case "upload": return t.upload || "Upload";
       case "settings": return t.settings || "Settings";
       case "healthScore": return t.healthScore || "Health Score";
+      case "calendar": return lang === "ar" ? "تقويم جوجل" : "Google Calendar";
+      case "chat": return lang === "ar" ? "جوجل شات" : "Google Chat";
       default: return "";
     }
   };
@@ -375,28 +449,29 @@ export default function App() {
       />
 
       {/* Main active route scroll screen container */}
-      <div className="flex-1 overflow-hidden flex flex-col relative bg-gradient-to-b from-[#020617] via-slate-900 to-slate-950">
+      <div className="flex-1 overflow-hidden flex flex-col relative bg-gradient-to-b from-slate-50 dark:from-[#020617] via-white dark:via-slate-900 to-slate-100 dark:to-slate-950">
         {renderActiveScreen()}
       </div>
 
       {/* Structured Bottom Navigation dock */}
       <div 
-        className="bg-[#020617] border-t border-slate-800 text-slate-100 py-1.5 px-2 shrink-0 select-none pb-safe"
+        className="bg-slate-50 dark:bg-[#020617] border-t border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 py-1.5 px-2 shrink-0 select-none pb-safe relative z-50"
       >
-        <nav className="grid grid-cols-5 gap-1">
-          {tabs.map((tab) => {
+        <nav className="grid grid-cols-5 gap-1 relative" dir={isRtl ? 'rtl' : 'ltr'}>
+          {tabs.slice(0, 2).map((tab) => {
             const isActive = activeTab === tab.id;
             return (
-              <button
+              <MagneticWrapper
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center justify-center py-2 rounded-xl transition-all cursor-pointer ${
+                isActive={isActive}
+                className={`flex flex-col items-center justify-center py-2 rounded-xl transition-colors cursor-pointer w-full ${
                   isActive 
-                    ? "text-indigo-400 bg-[#0f172a]/40 shadow-inner font-extrabold" 
-                    : "text-slate-500 hover:text-slate-300"
+                    ? "text-indigo-600 dark:text-indigo-400 bg-white dark:bg-[#0f172a]/40 shadow-inner font-extrabold" 
+                    : "text-slate-700 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-700 dark:text-slate-300 hover:bg-[#0f172a]/20"
                 }`}
               >
-                <div className={`transition-transform duration-300 ${isActive ? "scale-105 text-indigo-400" : ""}`}>
+                <div className={`transition-transform duration-300 ${isActive ? "scale-105 text-indigo-600 dark:text-indigo-400" : ""}`}>
                   {tab.icon}
                 </div>
                 <span className={`text-[8.5px] mt-1 text-center font-medium block truncate w-full ${isRtl ? "font-arabic" : ""}`}>
@@ -405,7 +480,45 @@ export default function App() {
                 {isActive && (
                   <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-0.5 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
                 )}
-              </button>
+              </MagneticWrapper>
+            );
+          })}
+
+          {/* Central Floating Action Button */}
+          <div className="flex justify-center items-center relative">
+            <div className="absolute -top-2.5">
+              <MagneticWrapper 
+                onClick={() => setActiveTab("upload")}
+                className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-full flex items-center justify-center text-white shadow-[0_4px_12px_rgba(79,70,229,0.25)] border-[4px] border-slate-50 dark:border-[#020617] hover:shadow-[0_6px_16px_rgba(79,70,229,0.4)] transition-all"
+              >
+                <ScanLine className="w-6 h-6" />
+              </MagneticWrapper>
+            </div>
+          </div>
+
+          {tabs.slice(2).map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <MagneticWrapper
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                isActive={isActive}
+                className={`flex flex-col items-center justify-center py-2 rounded-xl transition-colors cursor-pointer w-full ${
+                  isActive 
+                    ? "text-indigo-600 dark:text-indigo-400 bg-white dark:bg-[#0f172a]/40 shadow-inner font-extrabold" 
+                    : "text-slate-700 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-700 dark:text-slate-300 hover:bg-[#0f172a]/20"
+                }`}
+              >
+                <div className={`transition-transform duration-300 ${isActive ? "scale-105 text-indigo-600 dark:text-indigo-400" : ""}`}>
+                  {tab.icon}
+                </div>
+                <span className={`text-[8.5px] mt-1 text-center font-medium block truncate w-full ${isRtl ? "font-arabic" : ""}`}>
+                  {tab.label}
+                </span>
+                {isActive && (
+                  <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-0.5 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
+                )}
+              </MagneticWrapper>
             );
           })}
         </nav>

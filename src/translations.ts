@@ -68,7 +68,8 @@ export const translations = {
     presetSaveQuestion: "كيف يمكنني توفير 50 د.أ إضافية شهرياً؟",
     presetScoreQuestion: "ما هي النقاط التي تقلل من تقييم صحتي المالية؟",
     presetLoanQuestion: "هل ميزانيتي تسمح بأخذ تمويل سيارة حالياً؟",
-    chatGreeting: "مرحباً بك! أنا مستشارك فنيكس. يسعدني الإجابة عن كل ما يخص ميزانيتك وتوفيرك ومحاكاة قراراتك وعاداتك الاستهلاكية.",
+    presetCareerQuestion: "كيف يمكنني تحسين سيرتي الذاتية لزيادة دخلي المالي؟",
+    chatGreeting: "مرحباً بك! أنا مستشارك فنيكس الشامل. يسعدني الإجابة عن كل ما يخص ميزانيتك ومسيرتك المهنية.",
     coachTyping: "يحلل المستشار ميزانيتك الآن...",
     errorCoach: "عذراً، حدث خطأ في التواصل مع خادم الذكاء الاصطناعي. تم تفعيل المحرك المحلي فنيكس لمتابعة النقاش.",
 
@@ -110,9 +111,9 @@ export const translations = {
     tipsImprove3: "3. استهدف سداد البطاقات الائتمانية ذات الفائدة الأعلى أولاً لتدعيم قدرتك الاستشارية.",
 
     // Statement Upload Screen
-    statementUploadTitle: "تحليل كشف الحساب البنكي",
-    statementUploadDesc: "ارفع ملف كشف الحساب البنكي (PDF, TXT, CSV) المصدر من بنكك، وسنقوم بتشفير البيانات واستخراج فئات الدخل والإنفاق فوراً وبذكاء.",
-    dragDropText: "اسحب كشف حسابك البنكي أو اضغط للتصفح من جهازك",
+    statementUploadTitle: "قراءة البطاقات البنكية وتصنيفها ذكيًّا",
+    statementUploadDesc: "ارفع كشف البطاقة أو قم بربط بطاقتك ليقوم النظام بتحليل المعاملات وتوزيع المصاريف والدخل بشكل مؤتمت ذكي.",
+    dragDropText: "ارفع كشف البطاقة البنكية أو استيراد المعاملات",
     formatsSupported: "يدعم صيغ PDF, TXT, CSV (الحد الأقصى 10 ميجا)",
     selectedFile: "الملف المختار حالياً:",
     uploadBtn: "بدء المعالجة واستخراج الرؤى",
@@ -140,9 +141,16 @@ export const translations = {
 
     // Settings
     settingsTitle: "لوحة التحكم والإعدادات",
+    language: "اللغة",
     languageSelect: "لغة التطبيق الافتراضية",
     arabic: "العربية (العربية)",
     english: "English (الإنجليزية)",
+    biometricLogin: "معرف الوجه / البصمة",
+    biometricDesc: "استخدم المصادقة الحيوية لتسجيل الدخول بأمان وسرعة.",
+    enableBiometric: "تفعيل الدخول بالبصمة",
+    resetTitle: "إعادة ضبط التطبيق (حذف البيانات)",
+    resetDesc: "سيتم حذف جميع التحليلات، السيناريوهات، وجلسات المستشار الذكي والعودة للواجهة الرئيسية، لا يمكن التراجع.",
+    logout: "تسجيل الخروج من الحساب",
     demoBannerTitle: "وضع تجريب العرض الفني (Demo Engine)",
     demoBannerDesc: "يمكنك التحويل الفوري بين الملفات ومستويات الدخل والدرجات المالية لإظهار مرونة التطبيق واستجابته الحية للمحكمين.",
     switchPerfectProfile: "تفاصيل دخل متوازن ومنخفض المديونية",
@@ -247,7 +255,8 @@ export const translations = {
     presetSaveQuestion: "How can I easily save an extra 50 JOD every month?",
     presetScoreQuestion: "What components are dragging down my health score?",
     presetLoanQuestion: "Does my current budget support a car downpayment?",
-    chatGreeting: "Hello! I am your FinX coach. Ask me anything about your spreadsheets, budgets, future planning, or subscription optimization.",
+    presetCareerQuestion: "Review my CV and suggest high-paying career paths.",
+    chatGreeting: "Welcome! I am your unified AI Coach. I can analyze your financial health, simulate budgets, and provide career advancement strategies.",
     coachTyping: "Evaluating your transactions...",
     errorCoach: "Network link unavailable. Switched to local FinX rules to assist without delays.",
 
@@ -289,9 +298,9 @@ export const translations = {
     tipsImprove3: "3. Target high-interest credit obligations first to expand your real liquidity thresholds.",
 
     // Statement Upload Screen
-    statementUploadTitle: "Bank Statement Parser",
-    statementUploadDesc: "Upload your transaction reports (PDF, TXT, CSV). FinX will parse your monthly statements, categorize spending, and refresh the score.",
-    dragDropText: "Drag & drop your bank statement here or click to browse",
+    statementUploadTitle: "Credit Card & Expenses Parser",
+    statementUploadDesc: "Upload your credit card statement or connect a card to let FinX automatically categorize spending, separate expenses from income, and build your dashboard.",
+    dragDropText: "Upload your credit card transactions or statement",
     formatsSupported: "Supports PDF, TXT, CSV (up to 10MB)",
     selectedFile: "Selected file name:",
     uploadBtn: "Analyze & Parse Inflows",
@@ -319,9 +328,16 @@ export const translations = {
 
     // Settings
     settingsTitle: "FinX Global Configuration",
+    language: "Language",
     languageSelect: "Language Preference",
     arabic: "العربية (Arabic)",
     english: "English (English)",
+    biometricLogin: "Face ID / Fingerprint",
+    biometricDesc: "Use biometric authentication to log in securely and quickly.",
+    enableBiometric: "Enable Biometric Login",
+    resetTitle: "Reset App (Delete Data)",
+    resetDesc: "All analysis, scenarios, and AI coach sessions will be deleted and reset. This cannot be undone.",
+    logout: "Log out of Account",
     demoBannerTitle: "Judge Quick Demonstration Suite (Demo Engine)",
     demoBannerDesc: "Hot-swap system profiles to demonstrate how FinX processes files, scores budgets, and forecasts outcomes in real-time.",
     switchPerfectProfile: "Balanced Stream Details (High Health Score)",
