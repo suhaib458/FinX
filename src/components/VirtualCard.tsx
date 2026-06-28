@@ -32,15 +32,14 @@ type TrustedDevice = {
   status: "trusted" | "temporary" | "unknown";
 };
 
-export default function VirtualCard({ activeCard, lang, isRtl, onRemoveCard }: VirtualCardProps) {
-  const [isRevealed, setIsRevealed] = useState(false);
+import { useCardReveal } from '../hooks/useCardReveal';
+
+export default React.memo(function VirtualCard({ activeCard, lang, isRtl, onRemoveCard }: VirtualCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
-  const [revealTimeLeft, setRevealTimeLeft] = useState(30);
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [isPressing, setIsPressing] = useState(false);
   
   const [showSecurityCenter, setShowSecurityCenter] = useState(false);
-  const [showConfirmReveal, setShowConfirmReveal] = useState(false);
   const [isEmergencyLocked, setIsEmergencyLocked] = useState(false);
   
   const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
@@ -51,14 +50,8 @@ export default function VirtualCard({ activeCard, lang, isRtl, onRemoveCard }: V
   const [riskScore, setRiskScore] = useState(0); // 0-100, 0 is best
   const [securityScore, setSecurityScore] = useState(85); // 0-100, 100 is best
   
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [blurActive, setBlurActive] = useState(false);
-  
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Track consecutive attempts for fraud detection
-  const [revealAttempts, setRevealAttempts] = useState(0);
 
   const addEvent = (type: string, status: "success" | "blocked" | "warning", method: string = "Passkey") => {
     setSecurityEvents(prev => [{
@@ -71,53 +64,20 @@ export default function VirtualCard({ activeCard, lang, isRtl, onRemoveCard }: V
     }, ...prev]);
   };
 
-  const handleRevealConfirm = async () => {
-    setIsAuthenticating(true);
-    
-    // Simulate verification delay and risk checks
-    await new Promise(r => setTimeout(r, 1000));
-    
-    const newAttempts = revealAttempts + 1;
-    setRevealAttempts(newAttempts);
-    
-    let currentRisk = riskScore;
-    if (newAttempts > 3) currentRisk += 30; // Rapid reveals increase risk
-    setRiskScore(Math.min(currentRisk, 100));
-    
-    if (currentRisk > 70 || isEmergencyLocked) {
-      addEvent("Card Reveal Blocked", "blocked", "Passkey");
-      setIsAuthenticating(false);
-      setShowConfirmReveal(false);
-      return; // Blocked by fraud engine or emergency lock
-    }
-
-    addEvent("Card Revealed", "success", "Passkey");
-    setIsAuthenticating(false);
-    setShowConfirmReveal(false);
-    setIsRevealed(true);
-    setRevealTimeLeft(30);
-    // Removed setIsFlipped(true) to avoid forcing card orientation
-    
-    // Start countdown
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setRevealTimeLeft(prev => {
-        if (prev <= 1) {
-          handleHide();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleHide = useCallback(() => {
-    setIsRevealed(false);
-    // Removed setIsFlipped(false) to not force orientation when hiding
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-  }, []);
+  const {
+    isRevealed,
+    revealTimeLeft,
+    isAuthenticating,
+    showConfirmReveal,
+    setShowConfirmReveal,
+    handleRevealConfirm,
+    handleHide
+  } = useCardReveal(
+    isEmergencyLocked,
+    riskScore,
+    setRiskScore,
+    addEvent
+  );
 
   const toggleEmergencyLock = () => {
     const newLocked = !isEmergencyLocked;
@@ -669,4 +629,4 @@ export default function VirtualCard({ activeCard, lang, isRtl, onRemoveCard }: V
       )}
     </div>
   );
-}
+});

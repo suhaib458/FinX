@@ -48,6 +48,7 @@ import { saveCareerProfile, getCareerProfile, CareerProfile } from "../lib/caree
 import ReportPreviewModal from "./ReportPreviewModal";
 import Avatar from "./Avatar";
 import JobResultCard from "./JobResultCard";
+import { useAICoachHistory } from "../hooks/useAICoachHistory";
 
 interface AICoachProps {
   lang: "ar" | "en";
@@ -109,138 +110,34 @@ export default function AICoach({
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
-  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
-  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
-
-  // Chat History State
-  const [conversations, setConversations] = useState<any[]>([]);
-  const [showHistorySidebar, setShowHistorySidebar] = useState(false);
-
-  // Fetch conversations
-  const fetchConversations = async () => {
-    if (!auth.currentUser) return;
-    try {
-      const q = query(
-        collection(db, "conversations"),
-        where("userId", "==", auth.currentUser.uid),
-        orderBy("updatedAt", "desc"),
-      );
-      const snapshot = await getDocs(q);
-      const convos = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setConversations(convos);
-    } catch (err) {
-      console.error("Error fetching chats:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchConversations();
-  }, []);
-
-  const saveConversation = async (msgs: ChatMessage[]) => {
-    if (!auth.currentUser) return;
-    try {
-      if (activeConversationId) {
-        if (msgs.length === 0) {
-          await deleteDoc(doc(db, "conversations", activeConversationId));
-          fetchConversations();
-          createNewChat();
-        } else {
-          await updateDoc(doc(db, "conversations", activeConversationId), {
-            messages: msgs,
-            lastMessagePreview: msgs[msgs.length - 1].content.substring(
-              0,
-              Math.min(50, msgs[msgs.length - 1].content.length),
-            ),
-            updatedAt: serverTimestamp(),
-          });
-          fetchConversations();
-        }
-      } else if (msgs.length > 1) {
-        const firstUserMsg = msgs.find((m) => m.role === "user");
-        const title = firstUserMsg
-          ? firstUserMsg.content.substring(0, 30)
-          : "New Chat";
-        const newDoc = await addDoc(collection(db, "conversations"), {
-          userId: auth.currentUser.uid,
-          title,
-          messages: msgs,
-          lastMessagePreview: msgs[msgs.length - 1].content.substring(
-            0,
-            Math.min(50, msgs[msgs.length - 1].content.length),
-          ),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        setActiveConversationId(newDoc.id);
-        fetchConversations();
-      }
-    } catch (err) {
-      console.error("Error saving conversation:", err);
-      throw err;
-    }
-  };
-
-  const createNewChat = () => {
-    setActiveConversationId(null);
-    setMessages([
-      {
-        id: "greet",
-        role: "assistant",
-        content: t.chatGreeting,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      },
-    ]);
-    if (window.innerWidth < 640) setShowHistorySidebar(false);
-  };
-
-  const loadConversation = (convo: any) => {
-    setActiveConversationId(convo.id);
-    setMessages(convo.messages || []);
-  };
+  const {
+    conversations,
+    showHistorySidebar,
+    setShowHistorySidebar,
+    conversationToDelete,
+    setConversationToDelete,
+    showClearAllConfirm,
+    setShowClearAllConfirm,
+    createNewChat,
+    saveConversation,
+    loadConversation,
+    deleteConversation,
+    executeDeleteAllConversations
+  } = useAICoachHistory(
+    activeConversationId,
+    setActiveConversationId,
+    setMessages,
+    t.chatGreeting,
+    window.innerWidth < 640
+  );
 
   const confirmDeleteConversation = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setConversationToDelete(id);
   };
 
-  const deleteConversation = async (id: string) => {
-    try {
-      console.log(`[Delete Diagnostics] Deleting single conversation: ${id}`);
-      await deleteDoc(doc(db, "conversations", id));
-      if (activeConversationId === id) {
-        createNewChat();
-      } else {
-        fetchConversations();
-      }
-      setConversationToDelete(null);
-    } catch (err) {
-      console.error("Failed to delete conversation:", err);
-    }
-  };
-
   const requestDeleteAllConversations = () => {
     setShowClearAllConfirm(true);
-  };
-
-  const executeDeleteAllConversations = async () => {
-    try {
-      setShowClearAllConfirm(false);
-      console.log(`[Delete Diagnostics] Deleting all ${conversations.length} conversations`);
-      // Loop through all conversations and delete them
-      await Promise.all(conversations.map(c => deleteDoc(doc(db, "conversations", c.id))));
-      console.log(`[Delete Diagnostics] Success deleting all conversations`);
-      setConversations([]);
-      createNewChat();
-    } catch (err) {
-      console.error("Error deleting all chats:", err);
-    }
   };
 
   // Message Interaction Functions
@@ -811,21 +708,19 @@ export default function AICoach({
       console.log(`[Diagnostics] Executing pending prompt: ${pendingPrompt}`);
       
       // Delay slightly to ensure UI is ready and scrolling works
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         handleSend(pendingPrompt);
       }, 500);
 
       if (clearPendingPrompt) clearPendingPrompt();
+      
+      return () => clearTimeout(timer);
     }
-  }, [pendingPrompt, loading]);
+  }, [pendingPrompt]);
 
   const [showReportPreview, setShowReportPreview] = useState(false);
 
-  useEffect(() => {
-    // Whenever messages update, if we have activeConversation, save it
-    // Wait, we need to prevent infinite loops and only trigger when user adds message
-    // Actually, explicit save is safer because messages propagate from props.
-  }, [messages, activeConversationId]);
+  // Save conversation explicitly when messages are added to prevent loops
 
   const getMarkdownComponents = (msg: ChatMessage) => ({
     code: ({ node, inline, className, children, ...props }: any) => {

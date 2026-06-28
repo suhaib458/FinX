@@ -53,7 +53,7 @@ export default function Dashboard({
   const [emailSuccess, setEmailSuccess] = useState(false);
   const [onboardingData, setOnboardingData] = useState<any>(null);
 
-  const handleRemoveCard = async () => {
+  const handleRemoveCard = React.useCallback(async () => {
     if (auth.currentUser) {
       try {
         await deleteDoc(doc(db, "users", auth.currentUser.uid, "settings", "activeCard"));
@@ -62,7 +62,7 @@ export default function Dashboard({
         console.error("Error removing card", error);
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
     const fetchOnboarding = async () => {

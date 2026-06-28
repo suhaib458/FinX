@@ -29,12 +29,15 @@ import {
 } from "lucide-react";
 import SaveButton from "./SaveButton";
 import { getProjects, getOwnerProjects, createProject, Project, createInvestmentRequest, InvestmentRequest, getOwnerRequests, getInvestorRequests, updateInvestmentRequest, deleteProject } from "../lib/projects";
+import { useProjectChat } from "../hooks/useProjectChat";
 
 interface ProjectsTabProps {
   lang: "ar" | "en";
   user: any;
   setActiveTab?: (tab: any) => void;
 }
+
+const EMPTY_MESSAGES: any[] = [];
 
 export default function ProjectsTab({ lang, user, setActiveTab }: ProjectsTabProps) {
   const isRtl = lang === "ar";
@@ -43,15 +46,20 @@ export default function ProjectsTab({ lang, user, setActiveTab }: ProjectsTabPro
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [activeRequestDetail, setActiveRequestDetail] = useState<InvestmentRequest | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [activeChatRequest, setActiveChatRequest] = useState<InvestmentRequest | null>(null);
-  const [chatSessions, setChatSessions] = useState<Record<string, {id: string, text: string, senderId: string, timestamp: Date}[]>>({});
-  const [chatInput, setChatInput] = useState("");
-  const [sendingMsg, setSendingMsg] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const {
+    activeChatRequest,
+    setActiveChatRequest,
+    chatInput,
+    setChatInput,
+    sendingMsg,
+    activeMessages,
+    handleSendMessage,
+    messagesEndRef,
+    attachments,
+    setAttachments,
+    fileInputRef
+  } = useProjectChat(user);
 
-  const activeMessages = activeChatRequest ? chatSessions[activeChatRequest.id || ""] || [] : [];
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [projects, setProjects] = useState<Project[]>([]);
   const [ownerProjects, setOwnerProjects] = useState<Project[]>([]);
@@ -81,55 +89,7 @@ export default function ProjectsTab({ lang, user, setActiveTab }: ProjectsTabPro
     summary: ""
   });
 
-  useEffect(() => {
-    if (activeChatRequest) {
-      const chatId = activeChatRequest.id || "";
-      if (!chatSessions[chatId]) {
-        setChatSessions(prev => ({
-          ...prev,
-          [chatId]: [
-            {
-              id: "initial",
-              text: activeChatRequest.message,
-              senderId: activeChatRequest.investorId,
-              timestamp: new Date()
-            }
-          ]
-        }));
-      }
-      setChatInput("");
-    }
-  }, [activeChatRequest]);
 
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [activeMessages, activeChatRequest]);
-
-  const handleSendMessage = async () => {
-    if (!chatInput.trim() || !user || !activeChatRequest || sendingMsg) return;
-    setSendingMsg(true);
-    
-    // Simulate network request
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const newMsg = {
-      id: Date.now().toString(),
-      text: chatInput.trim(),
-      senderId: user.uid,
-      timestamp: new Date()
-    };
-    
-    const chatId = activeChatRequest.id || "";
-    setChatSessions(prev => ({
-      ...prev,
-      [chatId]: [...(prev[chatId] || []), newMsg]
-    }));
-    
-    setChatInput("");
-    setSendingMsg(false);
-  };
 
   useEffect(() => {
     loadData();

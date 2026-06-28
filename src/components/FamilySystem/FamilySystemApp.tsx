@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import RoleSelection from './screens/RoleSelection';
 import ParentAuth from './screens/ParentAuth';
@@ -21,7 +21,7 @@ import DeviceShell from '../DeviceShell';
 
 export default function FamilySystemApp() {
   // Mock Data
-  const mockFamily: FamilyProfile = {
+  const mockFamily: FamilyProfile = useMemo(() => ({
     id: "fam_123",
     ownerId: "parent_1",
     walletBalance: 350.00,
@@ -31,7 +31,7 @@ export default function FamilySystemApp() {
       { id: "child_1", name: "أحمد", role: "child", allowance: 25.0, spentThisWeek: 15.0, weeklyLimit: 40.0, isCardFrozen: false, score: 120 },
       { id: "child_2", name: "سارة", role: "child", allowance: 10.0, spentThisWeek: 2.0, weeklyLimit: 20.0, isCardFrozen: false, score: 350 }
     ]
-  };
+  }), []);
 
   return (
     <DeviceShell lang="ar">

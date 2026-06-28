@@ -202,8 +202,49 @@ async function authenticate(req: express.Request, res: express.Response, next: e
   }
 }
 
+// Rate Limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: { error: "Too many requests, please try again later." }
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 50, // 50 requests per hour per IP
+  message: { error: "AI rate limit exceeded, please try again later." }
+});
+
+// Quota Check Middleware
+async function checkQuota(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const user = (req as any).user;
+  try {
+    const userDoc = await adminDb.collection("users").doc(user.uid).get();
+    const sub = userDoc.data()?.subscription?.plan || "free";
+    
+    // Simplistic quota mapping
+    const aiLimit = sub === "free" ? 10 : (sub === "premium" ? 100 : 9999);
+    const usageDoc = await adminDb.collection("users").doc(user.uid).collection("usage").doc("ai").get();
+    const currentUsage = usageDoc.data()?.count || 0;
+    
+    if (currentUsage >= aiLimit) {
+      return res.status(403).json({ error: "Subscription plan AI usage limit reached." });
+    }
+    
+    // Increment usage
+    await adminDb.collection("users").doc(user.uid).collection("usage").doc("ai").set({
+      count: FieldValue.increment(1)
+    }, { merge: true });
+    
+    next();
+  } catch (error) {
+    console.error("Quota check failed", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // 0. Upgrade Plan Endpoint
-app.post("/api/upgrade", authenticate, async (req, res) => {
+app.post("/api/upgrade", apiLimiter, authenticate, async (req, res) => {
   const uid = (req as any).user.uid;
   const { plan } = req.body;
   
@@ -228,7 +269,7 @@ app.post("/api/upgrade", authenticate, async (req, res) => {
 
 // -- WebAuthn Endpoints --
 
-app.get("/api/webauthn/generate-registration-options", authenticate, async (req, res) => {
+app.get("/api/webauthn/generate-registration-options", apiLimiter, authenticate, async (req, res) => {
   const user = (req as any).user;
   try {
     // Get existing passkeys from Firestore to exclude them
@@ -265,7 +306,7 @@ app.get("/api/webauthn/generate-registration-options", authenticate, async (req,
   }
 });
 
-app.post("/api/webauthn/verify-registration", authenticate, async (req, res) => {
+app.post("/api/webauthn/verify-registration", apiLimiter, authenticate, async (req, res) => {
   const user = (req as any).user;
   const body = req.body;
   const expectedChallenge = userChallenges[user.uid];
@@ -314,7 +355,7 @@ app.post("/api/webauthn/verify-registration", authenticate, async (req, res) => 
   }
 });
 
-app.get("/api/webauthn/generate-authentication-options", async (req, res) => {
+app.get("/api/webauthn/generate-authentication-options", apiLimiter, async (req, res) => {
   try {
     const rpID = req.hostname;
     const options = await generateAuthenticationOptions({
@@ -331,7 +372,7 @@ app.get("/api/webauthn/generate-authentication-options", async (req, res) => {
   }
 });
 
-app.post("/api/webauthn/verify-authentication", async (req, res) => {
+app.post("/api/webauthn/verify-authentication", apiLimiter, async (req, res) => {
   const body = req.body;
   
   try {
@@ -404,47 +445,6 @@ app.post("/api/webauthn/verify-authentication", async (req, res) => {
     res.status(400).json({ error: "Verification failed" });
   }
 });
-
-// Rate Limiting
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
-  message: { error: "Too many requests, please try again later." }
-});
-
-const aiLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 50, // 50 requests per hour per IP
-  message: { error: "AI rate limit exceeded, please try again later." }
-});
-
-// Quota Check Middleware
-async function checkQuota(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const user = (req as any).user;
-  try {
-    const userDoc = await adminDb.collection("users").doc(user.uid).get();
-    const sub = userDoc.data()?.subscription?.plan || "free";
-    
-    // Simplistic quota mapping
-    const aiLimit = sub === "free" ? 10 : (sub === "premium" ? 100 : 9999);
-    const usageDoc = await adminDb.collection("users").doc(user.uid).collection("usage").doc("ai").get();
-    const currentUsage = usageDoc.data()?.count || 0;
-    
-    if (currentUsage >= aiLimit) {
-      return res.status(403).json({ error: "Subscription plan AI usage limit reached." });
-    }
-    
-    // Increment usage
-    await adminDb.collection("users").doc(user.uid).collection("usage").doc("ai").set({
-      count: FieldValue.increment(1)
-    }, { merge: true });
-    
-    next();
-  } catch (error) {
-    console.error("Quota check failed", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-}
 
 // 1. AI Coach Chat Endpoint
 app.post("/api/coach", apiLimiter, aiLimiter, authenticate, checkQuota, async (req, res) => {

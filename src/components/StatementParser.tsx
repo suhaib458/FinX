@@ -58,9 +58,7 @@ export default function StatementParser({
   const [hasReachedLimit, setHasReachedLimit] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    // Check statement limits is now handled by backend
-  }, [transactions.length]);
+  // Check statement limits is now handled by backend
 
   // Manual entry forms states
   const [amount, setAmount] = useState("");

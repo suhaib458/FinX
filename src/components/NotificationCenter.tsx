@@ -128,7 +128,7 @@ export default function NotificationCenter({ lang, setActiveTab }: NotificationC
     setOpenMenuId(null);
   };
 
-  const processNotifications = () => {
+  const processNotifications = useMemo(() => {
     let result = notifications.filter(n => !disabledCategories.includes(n.category));
     
     if (activeTab !== "all") {
@@ -185,13 +185,13 @@ export default function NotificationCenter({ lang, setActiveTab }: NotificationC
     });
 
     return grouped;
-  };
+  }, [notifications, disabledCategories, activeTab, activeFilter, searchQuery]);
 
-  const processedNotes = processNotifications();
+  const processedNotes = processNotifications;
   const pinnedNotes = processedNotes.filter(n => n.isPinned);
   const unpinnedNotes = processedNotes.filter(n => !n.isPinned);
 
-  const getTimelineSections = (notes: any[]) => {
+  const timelineSections = useMemo(() => {
     const today: any[] = [];
     const yesterday: any[] = [];
     const thisWeek: any[] = [];
@@ -199,7 +199,7 @@ export default function NotificationCenter({ lang, setActiveTab }: NotificationC
     const older: any[] = [];
 
     const now = new Date();
-    notes.forEach(n => {
+    unpinnedNotes.forEach(n => {
       const date = n.createdAt?.toDate?.() || new Date(n.createdAt || Date.now());
       const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 3600 * 24));
       
@@ -217,9 +217,7 @@ export default function NotificationCenter({ lang, setActiveTab }: NotificationC
       { label: isRtl ? "هذا الشهر" : "This Month", data: thisMonth },
       { label: isRtl ? "الأقدم" : "Older", data: older }
     ].filter(s => s.data.length > 0);
-  };
-
-  const timelineSections = getTimelineSections(unpinnedNotes);
+  }, [unpinnedNotes, isRtl]);
 
   const getPriorityIcon = (priority?: string) => {
     switch (priority) {

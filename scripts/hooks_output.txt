@@ -1,0 +1,711 @@
+
+
+--- src/App.tsx ---
+135:   useEffect(() => {
+136:     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+137:       setUser(currentUser);
+138:       
+139:       if (currentUser) {
+140:         try {
+141:           const prefsDoc = await getDoc(doc(db, "users", currentUser.uid, "settings", "smsPreferences"));
+142:           const prefsData = prefsDoc.data();
+143:           if (!prefsData?.verified) {
+144:              setIsPhoneVerified(false);
+145:              setAuthChecking(false);
+146:              return; // Stop initialization until verified
+147:           }
+148:           setIsPhoneVerified(true);
+149:         } catch (e) {
+150:           console.error("Error checking phone verification:", e);
+151:         }
+152:       } else {
+153:         setActiveTab("home");
+154:       }
+155: 
+156:       setAuthChecking(false);
+157:     });
+158:     
+159:     return () => unsubscribe();
+160:   }, []);
+162:   useEffect(() => {
+163:     let unsubProfile: (() => void) | undefined;
+164:     const initializeUserApp = async (currentUser: User) => {
+165:         try {
+166:           const sub = await getUserSubscription(currentUser.uid);
+167:           setIsPro(sub.plan === "premium" || sub.plan === "elite");
+168: 
+169:           const profile = await RewardsService.initializeProfile(currentUser.uid);
+170:           const { streakUpdated, newStreak } = await RewardsService.processDailyStreak(currentUser.uid, profile);
+171:           
+172:           const finProfile = await getFinancialProfile(currentUser.uid);
+173:           if (finProfile) {
+174:             setAnalysis(finProfile);
+175:           }
+176: 
+177:           if (streakUpdated && newStreak >= 7) {
+178:              await RewardsService.unlockAchievement(currentUser.uid, "7_day_streak", "7-Day Streak", 50, isPro);
+179:           }
+180: 
+181:           const onboardingDoc = await getDoc(doc(db, "users", currentUser.uid, "settings", "onboarding"));
+182:           if (onboardingDoc.exists()) {
+183:              const data = onboardingDoc.data();
+184:              setUserRole(data.selectedRole || null);
+185:           }
+186: 
+187:           const activeCardDoc = await getDoc(doc(db, "users", currentUser.uid, "settings", "activeCard"));
+188:           if (activeCardDoc.exists()) {
+189:              const data = activeCardDoc.data() as ActiveCard;
+190:              setActiveCard(data);
+191:              localStorage.setItem("finx_active_card", JSON.stringify(data));
+192:           }
+193: 
+194:           unsubProfile = RewardsService.subscribeToProfile(currentUser.uid, (data) => {
+195:             setRewardProfile(data);
+196:           });
+197:           
+198:           const userDocRef = doc(db, "users", currentUser.uid);
+199:           const userDocSnap = await getDoc(userDocRef);
+200:           
+201:           if (!userDocSnap.exists() || !userDocSnap.data()?.welcomeCardSeen) {
+202:             setShowWelcome(true);
+203:           } else {
+204:             setShowWelcome(false);
+205:           }
+206:         } catch (e) {
+207:           console.error("Error initializing user app:", e);
+208:         }
+209:     };
+210: 
+211:     if (user && isPhoneVerified) {
+212:        initializeUserApp(user);
+213:     }
+214:     
+215:     return () => {
+216:       if (unsubProfile) unsubProfile();
+217:     };
+218:   }, [user, isPhoneVerified, isPro]);
+221:   useEffect(() => {
+222:     if (user && analysis && analysis.monthlyIncome > 0) {
+223:       saveFinancialProfile(user.uid, analysis);
+224:     }
+225:   }, [analysis, user]);
+233:   useEffect(() => {
+234:     localStorage.setItem("finx_language", lang);
+235:     document.documentElement.lang = lang;
+236:     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'; 
+237:   }, [lang]);
+252:   useEffect(() => {
+253:     setChatHistory(prev => {
+254:       if (prev.length === 0) {
+255:         return [
+256:           {
+257:             id: "greet",
+258:             role: "assistant",
+259:             content: translations[lang].chatGreeting,
+260:             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+261:           }
+262:         ];
+263:       }
+264:       return prev;
+265:     });
+266:   }, [lang]);
+
+
+--- src/components/AICoach.tsx ---
+89:   useEffect(() => {
+90:     // Check messaging limits
+91:     if (auth.currentUser && messages.length > 0) {
+92:       getUserSubscription(auth.currentUser.uid).then(sub => {
+93:         const limits = PLAN_LIMITS[sub.plan];
+94:         const userMsgCount = messages.filter(m => m.role === 'user').length;
+95:         if (limits.aiCoachMessages !== -1 && userMsgCount >= limits.aiCoachMessages) {
+96:           setHasReachedLimit(true);
+97:         } else {
+98:           setHasReachedLimit(false);
+99:         }
+100:       });
+101:     }
+102:   }, [messages.length]);
+139:   useEffect(() => {
+140:     fetchConversations();
+141:   }, []);
+367:   useEffect(() => {
+368:     const handleKeyDown = (e: KeyboardEvent) => {
+369:       // Don't intercept if user is typing in generic input
+370:       if (
+371:         e.target instanceof HTMLInputElement ||
+372:         e.target instanceof HTMLTextAreaElement
+373:       )
+374:         return;
+375: 
+376:       if (selectionMode && e.ctrlKey && e.key === "a") {
+377:         e.preventDefault();
+378:         setSelectedMessages(
+379:           messages.filter((m) => m.id !== "greet").map((m) => m.id),
+380:         );
+381:       }
+382: 
+383:       if (selectionMode && selectedMessages.length > 0 && e.key === "Delete") {
+384:         e.preventDefault();
+385:         setShowBulkDeleteConfirm(true);
+386:       }
+387:     };
+388: 
+389:     window.addEventListener("keydown", handleKeyDown);
+390:     return () => window.removeEventListener("keydown", handleKeyDown);
+391:   }, [selectionMode, selectedMessages, messages]);
+496:   useEffect(() => {
+497:     return () => {
+498:       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+499:       if (audioUrl) URL.revokeObjectURL(audioUrl);
+500:     };
+501:   }, [audioUrl]);
+504:   useEffect(() => {
+505:     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+506:   }, [messages, loading]);
+809:   useEffect(() => {
+810:     if (pendingPrompt && pendingPrompt.trim() !== "") {
+811:       console.log(`[Diagnostics] Executing pending prompt: ${pendingPrompt}`);
+812:       
+813:       // Delay slightly to ensure UI is ready and scrolling works
+814:       setTimeout(() => {
+815:         handleSend(pendingPrompt);
+816:       }, 500);
+817: 
+818:       if (clearPendingPrompt) clearPendingPrompt();
+819:     }
+820:   }, [pendingPrompt, loading]);
+824:   useEffect(() => {
+825:     // Whenever messages update, if we have activeConversation, save it
+826:     // Wait, we need to prevent infinite loops and only trigger when user adds message
+827:     // Actually, explicit save is safer because messages propagate from props.
+828:   }, [messages, activeConversationId]);
+
+
+--- src/components/AIInterviewSimulator.tsx ---
+35:   useEffect(() => {
+36:     const fetchProfile = async () => {
+37:       if (auth.currentUser) {
+38:         const data = await getCareerProfile(auth.currentUser.uid);
+39:         if (data) {
+40:           setProfile(data);
+41:           if (data.careerFields?.[0]) setCareerField(data.careerFields[0]);
+42:         }
+43:         const hist = await getInterviewHistory(auth.currentUser.uid);
+44:         setHistoryData(hist);
+45:       }
+46:       setLoadingProfile(false);
+47:     };
+48:     fetchProfile();
+49:   }, []);
+
+
+--- src/components/AccountLinkingManager.tsx ---
+44:   useEffect(() => {
+45:     refreshProviders();
+46:   }, [auth.currentUser]);
+
+
+--- src/components/AnalyticsTab.tsx ---
+50:   useEffect(() => {
+51:     fetchReports();
+52:   }, [user.uid]);
+
+
+--- src/components/Auth.tsx ---
+60:   useEffect(() => {
+61:     let timer: any;
+62:     if (mockCodeSent && countdown > 0) {
+63:       timer = setInterval(() => setCountdown(c => c - 1), 1000);
+64:     }
+65:     return () => clearInterval(timer);
+66:   }, [mockCodeSent, countdown]);
+71:   useEffect(() => {
+72:     try {
+73:       localStorage.removeItem("FinX_SecureCredentials");
+74:     } catch (e) {}
+75:   }, []);
+
+
+--- src/components/Avatar.tsx ---
+15:   useEffect(() => {
+16:     if (!uid) return;
+17:     
+18:     const unsubscribe = onSnapshot(doc(db, "users", uid), (docSnap) => {
+19:       if (docSnap.exists() && docSnap.data().profilePhotoURL) {
+20:         setPhotoURL(docSnap.data().profilePhotoURL);
+21:       } else {
+22:         setPhotoURL(null);
+23:       }
+24:     });
+25: 
+26:     return () => unsubscribe();
+27:   }, [uid]);
+
+
+--- src/components/CardScanner.tsx ---
+40:   useEffect(() => {
+41:     startCamera();
+42:     return () => {
+43:       stopCamera();
+44:     };
+45:   }, []);
+48:   useEffect(() => {
+49:     captureAndScanRef.current = captureAndScan;
+50:   }); // update every render is fine, or we can just leave it as is if we put captureAndScan at the top
+131:   useEffect(() => {
+132:     if (scannedData || error || isScanning) {
+133:       if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
+134:       setCountdown(null);
+135:       stableFramesCountRef.current = 0;
+136:       previousFrameRef.current = null;
+137:       return;
+138:     }
+139: 
+140:     stableFramesCountRef.current = 0;
+141:     previousFrameRef.current = null;
+142:     setCountdown(null);
+143: 
+144:     checkIntervalRef.current = window.setInterval(checkStability, 1000);
+145: 
+146:     return () => {
+147:       if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
+148:     };
+149:   }, [scannedData, error, isScanning, scanStep]);
+
+
+--- src/components/CareerProfileScreen.tsx ---
+115:   useEffect(() => {
+116:     const fetchProfile = async () => {
+117:       if (auth.currentUser) {
+118:         const data = await getCareerProfile(auth.currentUser.uid);
+119:         setProfile(data);
+120:       }
+121:       setLoading(false);
+122:     };
+123:     fetchProfile();
+124:   }, []);
+
+
+--- src/components/Dashboard.tsx ---
+67:   useEffect(() => {
+68:     const fetchOnboarding = async () => {
+69:       if (auth.currentUser) {
+70:         const docRef = await getDoc(doc(db, "users", auth.currentUser.uid, "settings", "onboarding"));
+71:         if (docRef.exists()) {
+72:           setOnboardingData(docRef.data());
+73:         }
+74:       } else {
+75:         const localData = localStorage.getItem("finx_onboarding_data");
+76:         if (localData) {
+77:           try {
+78:             setOnboardingData(JSON.parse(localData));
+79:           } catch(e) {}
+80:         }
+81:       }
+82:     };
+83:     fetchOnboarding();
+84:   }, []);
+
+
+--- src/components/DeviceShell.tsx ---
+12:   useEffect(() => {
+13:     const updateTime = () => {
+14:       const now = new Date();
+15:       let hours = now.getHours();
+16:       const minutes = now.getMinutes().toString().padStart(2, "0");
+17:       const ampm = hours >= 12 ? "PM" : "AM";
+18:       hours = hours % 12 || 12;
+19:       setCurrentTime(`${hours}:${minutes} ${ampm}`);
+20:     };
+21:     updateTime();
+22:     const timer = setInterval(updateTime, 1000 * 60);
+23:     return () => clearInterval(timer);
+24:   }, []);
+
+
+--- src/components/FamilySystem/components/ChildDashboard.tsx ---
+13:   useEffect(() => {
+14:     // Simple role validation: Child must have a valid session token
+15:     if (!sessionStorage.getItem('child_auth')) {
+16:       navigate('/family/auth/child', { replace: true });
+17:     }
+18:   }, [navigate]);
+
+
+--- src/components/FamilySystem/components/ParentDashboard.tsx ---
+15:   useEffect(() => {
+16:     // Role validation: Parent must have passed the authentication gateway
+17:     if (!sessionStorage.getItem('parent_auth')) {
+18:       navigate('/family/auth/parent', { replace: true });
+19:     }
+20:   }, [navigate]);
+
+
+--- src/components/FinancialNotes.tsx ---
+84:   useEffect(() => {
+85:     fetchNotes();
+86:   }, [sortOrder]);
+
+
+--- src/components/Header.tsx ---
+40:   useEffect(() => {
+41:     if (!user) return;
+42:     const unsubscribe = subscribeToNotifications(user.uid, (notes) => {
+43:       setNotifications(notes);
+44:     });
+45:     return () => unsubscribe();
+46:   }, [user]);
+75:   useEffect(() => {
+76:     const handleClickOutside = (e: MouseEvent) => {
+77:       if (
+78:         refs.reference.current && !(refs.reference.current as any).contains(e.target as Node) &&
+79:         refs.floating.current && !(refs.floating.current as any).contains(e.target as Node)
+80:       ) {
+81:         setMenuOpen(false);
+82:       }
+83:     };
+84:     document.addEventListener("mousedown", handleClickOutside);
+85:     return () => document.removeEventListener("mousedown", handleClickOutside);
+86:   }, [refs.reference, refs.floating]);
+
+
+--- src/components/LaunchVideo.tsx ---
+11:   useEffect(() => {
+12:     // Sequence timing
+13:     // Scene 0: Start to 5s
+14:     // Scene 1: 5s to 10s
+15:     // Scene 2: 10s to 15s
+16:     // Scene 3: 15s to 20s
+17:     // Scene 4: 20s to 25s
+18:     // Scene 5: 25s to 30s -> end
+19:     const timers = [
+20:       setTimeout(() => setScene(1), 5000),
+21:       setTimeout(() => setScene(2), 10000),
+22:       setTimeout(() => setScene(3), 15000),
+23:       setTimeout(() => setScene(4), 20000),
+24:       setTimeout(() => setScene(5), 25000),
+25:       setTimeout(() => onComplete(), 30000),
+26:     ];
+27: 
+28:     return () => timers.forEach(clearTimeout);
+29:   }, [onComplete]);
+
+
+--- src/components/NotificationCenter.tsx ---
+24:   useEffect(() => {
+25:     const handleClickOutside = () => setOpenMenuId(null);
+26:     document.addEventListener("click", handleClickOutside);
+27:     return () => document.removeEventListener("click", handleClickOutside);
+28:   }, []);
+30:   useEffect(() => {
+31:     if (!auth.currentUser) return;
+32:     const unsubscribe = subscribeToNotifications(auth.currentUser.uid, (data) => {
+33:       setNotifications(data);
+34:       setLoading(false);
+35:     });
+36:     return () => unsubscribe();
+37:   }, []);
+93:   useEffect(() => {
+94:     const loadSettings = async () => {
+95:       if (!auth.currentUser) return;
+96:       try {
+97:         const docRef = doc(db, "users", auth.currentUser.uid, "settings", "notifications");
+98:         const snap = await getDoc(docRef);
+99:         if (snap.exists()) {
+100:           setDisabledCategories(snap.data().disabledCategories || []);
+101:         }
+102:       } catch (e) {
+103:         console.error("Error loading settings", e);
+104:       }
+105:     };
+106:     loadSettings();
+107:   }, []);
+
+
+--- src/components/PhoneNumberManager.tsx ---
+64:   useEffect(() => {
+65:     if (!auth.currentUser) return;
+66:     const fetchPrefs = async () => {
+67:       try {
+68:         const docRef = doc(db, `users/${auth.currentUser!.uid}/settings/smsPreferences`);
+69:         const docSnap = await getDoc(docRef);
+70:         if (docSnap.exists()) {
+71:           const data = docSnap.data() as SmsPreferences;
+72:           setPrefs(data);
+73:           if (data.phoneNumber && !data.verified) {
+74:              // Pre-fill inline verification inputs if unverified
+75:              // Note: assuming basic splitting is not strictly needed if we just show it, 
+76:              // but we can set phoneNumberStr to the full number for the verify flow if we want.
+77:              // For simplicity, we just use the raw value.
+78:           }
+79:         } else {
+80:           setPrefs({
+81:             phoneNumber: "",
+82:             verified: false,
+83:             smsIntelligenceEnabled: false,
+84:             salaryDetectionEnabled: false,
+85:             depositDetectionEnabled: false,
+86:             purchaseDetectionEnabled: false,
+87:             expenseCategorizationEnabled: false
+88:           });
+89:         }
+90:       } catch (err) {
+91:         console.error("Failed to load SMS preferences", err);
+92:       } finally {
+93:         setLoading(false);
+94:       }
+95:     };
+96:     fetchPrefs();
+97:   }, []);
+
+
+--- src/components/ProfilePhotoManager.tsx ---
+17:   useEffect(() => {
+18:     const fetchUserPhoto = async () => {
+19:       if (!auth.currentUser) return;
+20:       try {
+21:         const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+22:         if (userDoc.exists() && userDoc.data().profilePhotoURL) {
+23:           setPhotoURL(userDoc.data().profilePhotoURL);
+24:         }
+25:       } catch (err) {
+26:         console.error("Error fetching user photo:", err);
+27:       }
+28:     };
+29:     fetchUserPhoto();
+30:   }, []);
+
+
+--- src/components/ProjectsTab.tsx ---
+84:   useEffect(() => {
+85:     if (activeChatRequest) {
+86:       const chatId = activeChatRequest.id || "";
+87:       if (!chatSessions[chatId]) {
+88:         setChatSessions(prev => ({
+89:           ...prev,
+90:           [chatId]: [
+91:             {
+92:               id: "initial",
+93:               text: activeChatRequest.message,
+94:               senderId: activeChatRequest.investorId,
+95:               timestamp: new Date()
+96:             }
+97:           ]
+98:         }));
+99:       }
+100:       setChatInput("");
+101:     }
+102:   }, [activeChatRequest]);
+104:   useEffect(() => {
+105:     if (messagesEndRef.current) {
+106:       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+107:     }
+108:   }, [activeMessages, activeChatRequest]);
+134:   useEffect(() => {
+135:     loadData();
+136:   }, [user?.uid, role]);
+
+
+--- src/components/RecommendationsTab.tsx ---
+50:   useEffect(() => {
+51:     fetchRecommendations();
+52:   }, [user.uid]);
+
+
+--- src/components/ReportPreviewModal.tsx ---
+59:   useEffect(() => {
+60:     fetchSummary();
+61:   }, []);
+
+
+--- src/components/RewardsTab.tsx ---
+17:   useEffect(() => {
+18:     if (uid) {
+19:       RewardsService.getHistory(uid).then(setHistory);
+20:     }
+21:   }, [uid, profile.points]); // refresh history when points change
+
+
+--- src/components/SaveButton.tsx ---
+26:   useEffect(() => {
+27:     let mounted = true;
+28:     const checkSaved = async () => {
+29:       // Small delay to ensure auth is ready
+30:       await new Promise(r => setTimeout(r, 500));
+31:       if (!auth.currentUser) {
+32:         if (mounted) setLoading(false);
+33:         return;
+34:       }
+35:       try {
+36:         const saved = await SavedService.isSaved(auth.currentUser.uid, itemType, itemId);
+37:         if (mounted) {
+38:           setIsSaved(saved);
+39:           setLoading(false);
+40:         }
+41:       } catch (err) {
+42:         console.warn(err);
+43:         if (mounted) setLoading(false);
+44:       }
+45:     };
+46:     checkSaved();
+47:     return () => { mounted = false; };
+48:   }, [itemType, itemId]);
+
+
+--- src/components/SavedTab.tsx ---
+21:   useEffect(() => {
+22:     const unsub = SavedService.subscribeToSavedItems(user.uid, (data) => {
+23:       setItems(data);
+24:       setLoading(false);
+25:     });
+26:     return () => unsub();
+27:   }, [user.uid]);
+
+
+--- src/components/SearchTab.tsx ---
+31:   useEffect(() => {
+32:     const savedSearches = localStorage.getItem(`finx_recent_searches_${user.uid}`);
+33:     if (savedSearches) {
+34:       setRecentSearches(JSON.parse(savedSearches));
+35:     }
+36:   }, [user.uid]);
+
+
+--- src/components/SettingsTab.tsx ---
+85:   useEffect(() => {
+86:     const checkPasskeys = async () => {
+87:       if (auth.currentUser) {
+88:         try {
+89:           const passkeysRef = collection(db, "users", auth.currentUser.uid, "passkeys");
+90:           const snap = await getDocs(passkeysRef);
+91:           if (!snap.empty) {
+92:             setHasPasskey(true);
+93:           }
+94:         } catch(e) {}
+95:         getUserSubscription(auth.currentUser.uid).then(setSubscription);
+96:       }
+97:     };
+98:     checkPasskeys();
+99:   }, []);
+
+
+--- src/components/StatementParser.tsx ---
+61:   useEffect(() => {
+62:     // Check statement limits is now handled by backend
+63:   }, [transactions.length]);
+
+
+--- src/components/SubscriptionModal.tsx ---
+44:   useEffect(() => {
+45:     setLocalActiveCard(activeCard);
+46:   }, [activeCard]);
+83:   useEffect(() => {
+84:     if (auth.currentUser) {
+85:       getUserSubscription(auth.currentUser.uid).then((sub) => {
+86:         setCurrentPlan(sub);
+87:         setLoading(false);
+88:       });
+89:     } else {
+90:       setLoading(false);
+91:     }
+92:   }, []);
+
+
+--- src/components/VirtualCard.tsx ---
+135:   useEffect(() => {
+136:     const handleVisibilityChange = () => {
+137:       if (document.hidden) {
+138:         setBlurActive(true);
+139:         handleHide(); // Auto hide on blur
+140:       } else {
+141:         setBlurActive(false);
+142:       }
+143:     };
+144:     
+145:     const handleWindowBlur = () => {
+146:       setBlurActive(true);
+147:     };
+148:     const handleWindowFocus = () => {
+149:       setBlurActive(false);
+150:     };
+151: 
+152:     document.addEventListener("visibilitychange", handleVisibilityChange);
+153:     window.addEventListener("blur", handleWindowBlur);
+154:     window.addEventListener("focus", handleWindowFocus);
+155: 
+156:     return () => {
+157:       document.removeEventListener("visibilitychange", handleVisibilityChange);
+158:       window.removeEventListener("blur", handleWindowBlur);
+159:       window.removeEventListener("focus", handleWindowFocus);
+160:     };
+161:   }, [handleHide]);
+164:   useEffect(() => {
+165:     const resetInactivity = () => {
+166:       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+167:       inactivityTimerRef.current = setTimeout(() => {
+168:         handleHide();
+169:         setBlurActive(true);
+170:       }, 300000);
+171:     };
+172: 
+173:     window.addEventListener("mousemove", resetInactivity);
+174:     window.addEventListener("keypress", resetInactivity);
+175:     window.addEventListener("touchstart", resetInactivity);
+176:     resetInactivity();
+177: 
+178:     return () => {
+179:       window.removeEventListener("mousemove", resetInactivity);
+180:       window.removeEventListener("keypress", resetInactivity);
+181:       window.removeEventListener("touchstart", resetInactivity);
+182:       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+183:     };
+184:   }, [handleHide]);
+
+
+--- src/components/WelcomeScreen.tsx ---
+16:   useEffect(() => {
+17:     // Check if first login on this device
+18:     const hasLoggedBefore = localStorage.getItem("finx_has_logged_in");
+19:     if (!hasLoggedBefore) {
+20:       setIsFirstLogin(true);
+21:       localStorage.setItem("finx_has_logged_in", "true");
+22:     }
+23: 
+24:     const timer = setInterval(() => {
+25:       setCountdown((prev) => {
+26:         if (prev <= 1) {
+27:           clearInterval(timer);
+28:           onComplete();
+29:           return 0;
+30:         }
+31:         return prev - 1;
+32:       });
+33:     }, 1000);
+34: 
+35:     return () => clearInterval(timer);
+36:   }, [onComplete]);
+
+
+--- src/components/WorkspaceCalendar.tsx ---
+77:   useEffect(() => {
+78:     fetchEvents();
+79:   }, []);
+
+
+--- src/components/WorkspaceChat.tsx ---
+69:   useEffect(() => {
+70:     fetchSpaces();
+71:   }, []);
+
+
+--- src/hooks/useWebAuthn.ts ---
+28:   useEffect(() => {
+29:     if (window.PublicKeyCredential) {
+30:       PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+31:         .then((available) => {
+32:           setIsSupported(available);
+33:         })
+34:         .catch(() => setIsSupported(false));
+35:     }
+36:   }, []);

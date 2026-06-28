@@ -263,7 +263,6 @@ export default function CardScanner({ lang, onSaveCard, onCancel }: CardScannerP
       expiryDate,
       brand,
       bankName,
-      cvv,
       balance
     });
   };

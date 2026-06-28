@@ -14,25 +14,47 @@ service cloud.firestore {
         allow write: if false; // Only server can write passkeys
       }
       
+      match /usage/{document=**} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only server can update usage
+      }
+      
       match /{document=**} {
         allow read, write: if isOwner(userId);
       }
     }
 
-    match /conversations/{document=**} {
-      allow read, write: if isSignedIn();
+    match /conversations/{document} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
     }
 
-    match /finx_projects/{document=**} {
-      allow read, write: if isSignedIn();
+    match /finx_projects/{document} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.founderId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.founderId == request.auth.uid && request.resource.data.founderId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.founderId == request.auth.uid;
     }
 
-    match /finx_investment_requests/{document=**} {
-      allow read, write: if isSignedIn();
+    match /finx_investment_requests/{document} {
+      allow create: if isSignedIn() && request.resource.data.investorId == request.auth.uid;
+      allow read: if isSignedIn() && (resource.data.investorId == request.auth.uid || resource.data.founderId == request.auth.uid);
+      allow update: if isSignedIn() && request.auth.uid == resource.data.founderId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if false;
+    }
+
+    match /finx_conversations/{document} {
+      allow create: if isSignedIn() && request.resource.data.investorId == request.auth.uid;
+      allow read: if isSignedIn() && (resource.data.investorId == request.auth.uid || resource.data.founderId == request.auth.uid);
+      allow update: if false;
+      allow delete: if false;
     }
     
-    match /savedItems/{document=**} {
-      allow read, write: if isSignedIn();
+    match /savedItems/{document} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow read, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
     }
 
     match /{document=**} {

@@ -164,7 +164,8 @@ export default function App() {
     const initializeUserApp = async (currentUser: User) => {
         try {
           const sub = await getUserSubscription(currentUser.uid);
-          setIsPro(sub.plan === "premium" || sub.plan === "elite");
+          const currentIsPro = sub.plan === "premium" || sub.plan === "elite";
+          setIsPro(currentIsPro);
 
           const profile = await RewardsService.initializeProfile(currentUser.uid);
           const { streakUpdated, newStreak } = await RewardsService.processDailyStreak(currentUser.uid, profile);
@@ -175,16 +176,20 @@ export default function App() {
           }
 
           if (streakUpdated && newStreak >= 7) {
-             await RewardsService.unlockAchievement(currentUser.uid, "7_day_streak", "7-Day Streak", 50, isPro);
+             await RewardsService.unlockAchievement(currentUser.uid, "7_day_streak", "7-Day Streak", 50, currentIsPro);
           }
 
-          const onboardingDoc = await getDoc(doc(db, "users", currentUser.uid, "settings", "onboarding"));
+          const [onboardingDoc, activeCardDoc, userDocSnap] = await Promise.all([
+            getDoc(doc(db, "users", currentUser.uid, "settings", "onboarding")),
+            getDoc(doc(db, "users", currentUser.uid, "settings", "activeCard")),
+            getDoc(doc(db, "users", currentUser.uid))
+          ]);
+
           if (onboardingDoc.exists()) {
              const data = onboardingDoc.data();
              setUserRole(data.selectedRole || null);
           }
 
-          const activeCardDoc = await getDoc(doc(db, "users", currentUser.uid, "settings", "activeCard"));
           if (activeCardDoc.exists()) {
              const data = activeCardDoc.data() as ActiveCard;
              setActiveCard(data);
@@ -194,9 +199,6 @@ export default function App() {
           unsubProfile = RewardsService.subscribeToProfile(currentUser.uid, (data) => {
             setRewardProfile(data);
           });
-          
-          const userDocRef = doc(db, "users", currentUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
           
           if (!userDocSnap.exists() || !userDocSnap.data()?.welcomeCardSeen) {
             setShowWelcome(true);
@@ -215,7 +217,7 @@ export default function App() {
     return () => {
       if (unsubProfile) unsubProfile();
     };
-  }, [user, isPhoneVerified, isPro]);
+  }, [user, isPhoneVerified]);
 
   // Auto-save Financial Profile when it changes
   useEffect(() => {
