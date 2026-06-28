@@ -71,37 +71,37 @@ export default function WorkspaceChat({ lang }: WorkspaceChatProps) {
   }, []);
 
   return (
-    <div className={`flex flex-col h-full bg-slate-50 dark:bg-[#020617] p-4 sm:p-6 pb-24 ${isRtl ? 'font-arabic text-right' : 'font-sans text-left'}`} dir={isRtl ? 'rtl' : 'ltr'}>
+    <div className={`flex flex-col h-full bg-[#F7F8FA] dark:bg-transparent p-4 sm:p-6 pb-24 ${isRtl ? 'font-arabic text-right' : 'font-sans text-left'}`} dir={isRtl ? 'rtl' : 'ltr'}>
       <div className="max-w-4xl mx-auto w-full">
          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center shadow-sm">
-               <MessagesSquare className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            <div className="w-12 h-12 bg-surface-primary border border-border-primary rounded-2xl flex items-center justify-center shadow-sm">
+               <MessagesSquare className="w-6 h-6 text-accent-green" />
             </div>
             <div>
-               <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+               <h1 className="text-2xl font-bold text-text-primary">
                   {isRtl ? "جوجل شات" : "Google Chat"}
                </h1>
-               <p className="text-sm text-slate-500">
+               <p className="text-sm text-text-secondary">
                   {isRtl ? "مساحات العمل والمحادثات الخاصة بك" : "Your workspaces and conversations"}
                </p>
             </div>
          </div>
 
          {error && (
-             <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm">
+             <div className="mb-6 bg-red-500/10 border border-red-500/20 text-danger p-4 rounded-xl text-sm">
                  {error}
              </div>
          )}
 
          {needsAuth ? (
-             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 text-center shadow-sm max-w-lg mx-auto mt-12">
+             <div className="bg-surface-primary border border-border-primary rounded-3xl p-8 text-center shadow-sm max-w-lg mx-auto mt-12">
                  <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
                     <MessageSquare className="w-8 h-8" />
                  </div>
-                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+                 <h2 className="text-xl font-bold text-text-primary mb-3">
                      {isRtl ? "الربط مع جوجل شات" : "Connect Google Chat"}
                  </h2>
-                 <p className="text-slate-600 dark:text-slate-400 text-sm mb-8 leading-relaxed">
+                 <p className="text-text-secondary text-sm mb-8 leading-relaxed">
                      {isRtl 
                        ? "قم بتسجيل الدخول بحساب جوجل الخاص بك لمنح فنيكس الوصول إلى مساحات العمل والمحادثات." 
                        : "Sign in with your Google account to grant FinX access to view your spaces and conversations."}
@@ -126,12 +126,12 @@ export default function WorkspaceChat({ lang }: WorkspaceChatProps) {
                  <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
              </div>
          ) : spaces.length === 0 ? (
-             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center shadow-sm">
+             <div className="bg-surface-primary border border-border-primary rounded-3xl p-12 text-center shadow-sm">
                  <MessageSquare className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                 <h3 className="text-lg font-bold text-text-primary mb-2">
                      {isRtl ? "لا توجد مساحات عمل" : "No Spaces Found"}
                  </h3>
-                 <p className="text-slate-500">
+                 <p className="text-text-secondary">
                      {isRtl ? "لم يتم العثور على أية محادثات أو مساحات عمل في حسابك." : "No conversations or workspaces were found in your account."}
                  </p>
              </div>
@@ -140,17 +140,17 @@ export default function WorkspaceChat({ lang }: WorkspaceChatProps) {
                  {spaces.map((space) => (
                      <div 
                        key={space.name} 
-                       className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-sm cursor-default"
+                       className="bg-surface-primary border border-border-primary rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-sm cursor-default"
                      >
                         <div className="flex items-center gap-4 truncate">
-                           <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center shrink-0">
+                           <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/20 text-accent-green rounded-full flex items-center justify-center shrink-0">
                                {space.type === "ROOM" ? <Hash className="w-5 h-5" /> : space.type === "DIRECT_MESSAGE" ? <Users className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
                            </div>
                            <div className="truncate">
-                              <h3 className="font-bold text-slate-900 dark:text-white text-base truncate">
+                              <h3 className="font-bold text-text-primary text-base truncate">
                                  {space.displayName || (isRtl ? "محادثة خاصة" : "Direct Message")}
                               </h3>
-                              <p className="text-xs text-slate-500 truncate mt-0.5">
+                              <p className="text-xs text-text-secondary truncate mt-0.5">
                                  {space.type === "ROOM" ? (isRtl ? "مساحة عمل" : "Space") : (isRtl ? "محادثة مباشرة" : "Direct Message")}
                               </p>
                            </div>

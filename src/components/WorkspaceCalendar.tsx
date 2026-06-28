@@ -99,37 +99,37 @@ export default function WorkspaceCalendar({ lang }: WorkspaceCalendarProps) {
   };
 
   return (
-    <div className={`flex flex-col h-full bg-slate-50 dark:bg-[#020617] p-4 sm:p-6 pb-24 ${isRtl ? 'font-arabic text-right' : 'font-sans text-left'}`} dir={isRtl ? 'rtl' : 'ltr'}>
+    <div className={`flex flex-col h-full bg-[#F7F8FA] dark:bg-transparent p-4 sm:p-6 pb-24 ${isRtl ? 'font-arabic text-right' : 'font-sans text-left'}`} dir={isRtl ? 'rtl' : 'ltr'}>
       <div className="max-w-4xl mx-auto w-full">
          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center shadow-sm">
+            <div className="w-12 h-12 bg-surface-primary border border-border-primary rounded-2xl flex items-center justify-center shadow-sm">
                <CalendarDays className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-               <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+               <h1 className="text-2xl font-bold text-text-primary">
                   {isRtl ? "تقويم جوجل" : "Google Calendar"}
                </h1>
-               <p className="text-sm text-slate-500">
+               <p className="text-sm text-text-secondary">
                   {isRtl ? "مزامنة وعرض أحداثك القادمة" : "Sync and view your upcoming events"}
                </p>
             </div>
          </div>
 
          {error && (
-             <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm">
+             <div className="mb-6 bg-red-500/10 border border-red-500/20 text-danger p-4 rounded-xl text-sm">
                  {error}
              </div>
          )}
 
          {needsAuth ? (
-             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 text-center shadow-sm max-w-lg mx-auto mt-12">
+             <div className="bg-surface-primary border border-border-primary rounded-3xl p-8 text-center shadow-sm max-w-lg mx-auto mt-12">
                  <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Calendar className="w-8 h-8" />
                  </div>
-                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+                 <h2 className="text-xl font-bold text-text-primary mb-3">
                      {isRtl ? "الربط مع تقويم جوجل" : "Connect Google Calendar"}
                  </h2>
-                 <p className="text-slate-600 dark:text-slate-400 text-sm mb-8 leading-relaxed">
+                 <p className="text-text-secondary text-sm mb-8 leading-relaxed">
                      {isRtl 
                        ? "قم بتسجيل الدخول بحساب جوجل الخاص بك لمنح فنيكس صلاحية قراءة مواعيدك وتنظيم يومك." 
                        : "Sign in with your Google account to grant FinX access to view your events and organize your day."}
@@ -154,12 +154,12 @@ export default function WorkspaceCalendar({ lang }: WorkspaceCalendarProps) {
                  <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
              </div>
          ) : events.length === 0 ? (
-             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center shadow-sm">
+             <div className="bg-surface-primary border border-border-primary rounded-3xl p-12 text-center shadow-sm">
                  <Calendar className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                 <h3 className="text-lg font-bold text-text-primary mb-2">
                      {isRtl ? "لا توجد مواعيد قادمة" : "No Upcoming Events"}
                  </h3>
-                 <p className="text-slate-500">
+                 <p className="text-text-secondary">
                      {isRtl ? "لم يتم العثور على أية أحداث في تقويمك للأيام السبعة القادمة." : "No events found in your calendar for the next 7 days."}
                  </p>
              </div>
@@ -171,25 +171,25 @@ export default function WorkspaceCalendar({ lang }: WorkspaceCalendarProps) {
                        href={evt.htmlLink}
                        target="_blank"
                        rel="noreferrer"
-                       className="block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 hover:shadow-md transition-shadow group"
+                       className="block bg-surface-primary border border-border-primary rounded-2xl p-4 sm:p-5 hover:shadow-md transition-shadow group"
                      >
                          <div className="flex items-start justify-between">
                             <div className="w-full">
-                                <h3 className="font-bold text-slate-900 dark:text-white text-base mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                <h3 className="font-bold text-text-primary text-base mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                    {evt.summary || (isRtl ? "بدون عنوان" : "Untitled Event")}
                                 </h3>
-                                <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-sm text-slate-500 dark:text-slate-400">
+                                <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-sm text-text-secondary">
                                    <div className="flex items-center gap-1.5">
-                                      <Calendar className="w-4 h-4 text-slate-400" />
+                                      <Calendar className="w-4 h-4 text-text-secondary" />
                                       {formatEventDate(evt)}
                                    </div>
                                    <div className="flex items-center gap-1.5">
-                                      <Clock className="w-4 h-4 text-slate-400" />
+                                      <Clock className="w-4 h-4 text-text-secondary" />
                                       {formatEventTime(evt)}
                                    </div>
                                    {evt.location && (
                                      <div className="flex items-center gap-1.5">
-                                        <MapPin className="w-4 h-4 text-slate-400" />
+                                        <MapPin className="w-4 h-4 text-text-secondary" />
                                         <span className="truncate max-w-[150px]">{evt.location}</span>
                                      </div>
                                    )}

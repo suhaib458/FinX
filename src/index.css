@@ -3,16 +3,91 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@layer base {
+  :root {
+    --bg-primary: #F7F8FA;
+    --bg-secondary: #F1F5F9;
+    --surface-primary: #FFFFFF;
+    --surface-elevated: #FFFFFF;
+    --surface-card: #FFFFFF;
+    --border-primary: #E2E8F0;
+    --border-secondary: #F1F5F9;
+    --text-primary: #0F172A;
+    --text-secondary: #64748B;
+    
+    --accent-purple: #9333ea;
+    --accent-green: #10b981;
+    --accent-orange: #f59e0b;
+    --danger: #ef4444;
+    --success: #10b981;
+    
+    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --shadow-strong: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .dark {
+    --bg-primary: #020617; /* Replicating Role Selection premium dark */
+    --bg-secondary: #0f172a;
+    --surface-primary: rgba(30, 41, 59, 0.6); /* slate-800/60 */
+    --surface-elevated: rgba(30, 41, 59, 0.8);
+    --surface-card: rgba(30, 41, 59, 0.6);
+    --border-primary: rgba(51, 65, 85, 1); /* slate-700 */
+    --border-secondary: rgba(51, 65, 85, 0.5); /* slate-700/50 */
+    --text-primary: #FFFFFF;
+    --text-secondary: #94A3B8; /* slate-400 */
+    
+    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+    --shadow-strong: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  }
+}
+
 @theme {
   --font-sans: "Inter", "Cairo", system-ui, -apple-system, sans-serif;
   --font-arabic: "Cairo", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
+  
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-surface-primary: var(--surface-primary);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-card: var(--surface-card);
+  --color-border-primary: var(--border-primary);
+  --color-border-secondary: var(--border-secondary);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-green: var(--accent-green);
+  --color-accent-orange: var(--accent-orange);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-strong: var(--shadow-strong);
+
   
   --color-brand-dark: #020617;
   --color-brand-navy: #0f172a;
   --color-brand-blue: #2563eb;
   --color-brand-accent: #4f46e5;
   --color-brand-accent-light: #818cf8;
+
+  /* Premium Banking Light Theme Overrides */
+  --color-slate-50: #F7F8FA;
+  --color-slate-100: #F8F9FB;
+  --color-slate-200: #E3E8EF;
+  --color-slate-400: #9CA3AF;
+  --color-slate-500: #6B7280;
+  --color-slate-700: #4B5563;
+  --color-slate-800: #1F2937;
+  --color-slate-900: #111827;
+
+  /* Softer shadows for Premium Light Theme */
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 24px -3px rgba(15, 23, 42, 0.1);
+  --shadow-xl: 0 20px 32px -4px rgba(15, 23, 42, 0.12);
 }
 
 /* Custom Scrollbars */
@@ -42,14 +117,36 @@
 
 /* Base custom styles to ensure RTL matches nicely with Cairo weights */
 html, body {
-  background-color: #f8fafc;
-  color: #0f172a;
+  background-color: #F7F8FA;
+  color: #1F2937;
   font-family: var(--font-sans);
   overflow-x: hidden;
+  width: 100%;
+  position: relative;
 }
 html.dark, body.dark {
   background-color: #020617;
   color: #e2e8f0;
+}
+
+@utility studio-preview-bg {
+  background-color: #F7F8FA;
+  background-attachment: fixed;
+}
+
+@utility finx-app-bg {
+  background-color: #040814;
+  background-image: 
+    radial-gradient(circle at 15% 0%, rgba(30, 58, 138, 0.15), transparent 45%),
+    radial-gradient(circle at 85% 100%, rgba(49, 46, 129, 0.15), transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.4), transparent 60%);
+  background-attachment: fixed;
+}
+
+#root {
+  overflow-x: hidden;
+  width: 100%;
+  min-height: 100vh;
 }
 
 *, *::before, *::after {
@@ -71,6 +168,12 @@ p, h1, h2, h3, h4, h5, h6, span, label, li, a {
 @keyframes pulseGlow {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.6; }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .glow-overlay {

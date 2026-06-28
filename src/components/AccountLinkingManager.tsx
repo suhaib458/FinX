@@ -127,13 +127,13 @@ export default function AccountLinkingManager({
   if (!auth.currentUser) return null;
 
   return (
-    <div className="rounded-2xl p-4.5 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 space-y-4">
+    <div className="rounded-2xl p-4.5 bg-surface-primary/50 border border-border-primary space-y-4">
       <div className="space-y-1">
         <label className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-wide flex items-center gap-1.5">
           <Key className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           {isRtl ? "طرق تسجيل الدخول المرتبطة" : "Linked Sign-In Methods"}
         </label>
-        <p className="text-[11px] text-slate-700 dark:text-slate-400 leading-relaxed">
+        <p className="text-[11px] text-text-primary dark:text-text-secondary leading-relaxed">
           {isRtl
             ? "يمكنك ربط أكثر من طريقة لتسجيل الدخول للحفاظ على أمان حسابك وسهولة الوصول إليه."
             : "Link multiple authentication methods to keep your account secure and accessible."}
@@ -144,21 +144,21 @@ export default function AccountLinkingManager({
         <div className="flex flex-col gap-2">
           {/* Google Connection Status */}
           <div
-            className={`flex items-center justify-between p-3 rounded-xl border ${hasGoogle ? "bg-indigo-500/10 border-indigo-500/20" : "bg-slate-100 dark:bg-slate-800 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/50"}`}
+            className={`flex items-center justify-between p-3 rounded-xl border ${hasGoogle ? "bg-indigo-500/10 border-indigo-500/20" : "bg-bg-secondary dark:bg-slate-800/50 border-border-primary/50"}`}
           >
             <div className="flex items-center gap-3">
               <div
-                className={`p-2 rounded-lg ${hasGoogle ? "bg-indigo-500/20 text-indigo-500 dark:text-indigo-300" : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-400"}`}
+                className={`p-2 rounded-lg ${hasGoogle ? "bg-indigo-500/20 text-indigo-500 dark:text-indigo-300" : "bg-slate-200 dark:bg-slate-700 text-text-primary dark:text-text-secondary"}`}
               >
                 <Chrome className="w-4 h-4" />
               </div>
               <div>
                 <p
-                  className={`text-xs font-bold ${hasGoogle ? "text-indigo-200" : "text-slate-700 dark:text-slate-400"}`}
+                  className={`text-xs font-bold ${hasGoogle ? "text-indigo-200" : "text-text-primary dark:text-text-secondary"}`}
                 >
                   Google Sign-In
                 </p>
-                <p className="text-[10px] text-slate-700 dark:text-slate-400">
+                <p className="text-[10px] text-text-primary dark:text-text-secondary">
                   {auth.currentUser.email}
                 </p>
               </div>
@@ -173,27 +173,27 @@ export default function AccountLinkingManager({
 
           {/* Password Connection Status */}
           <div
-            className={`flex items-center justify-between p-3 rounded-xl border ${hasPassword ? "bg-emerald-500/10 border-emerald-500/20" : "bg-slate-100 dark:bg-slate-800 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/50"}`}
+            className={`flex items-center justify-between p-3 rounded-xl border ${hasPassword ? "bg-emerald-500/10 border-emerald-500/20" : "bg-bg-secondary dark:bg-slate-800/50 border-border-primary/50"}`}
           >
             <div className="flex items-center gap-3">
               <div
-                className={`p-2 rounded-lg ${hasPassword ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-300" : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-400"}`}
+                className={`p-2 rounded-lg ${hasPassword ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-300" : "bg-slate-200 dark:bg-slate-700 text-text-primary dark:text-text-secondary"}`}
               >
                 <Mail className="w-4 h-4" />
               </div>
               <div>
                 <p
-                  className={`text-xs font-bold ${hasPassword ? "text-emerald-200" : "text-slate-700 dark:text-slate-400"}`}
+                  className={`text-xs font-bold ${hasPassword ? "text-emerald-200" : "text-text-primary dark:text-text-secondary"}`}
                 >
                   Email & Password
                 </p>
-                <p className="text-[10px] text-slate-700 dark:text-slate-400">
+                <p className="text-[10px] text-text-primary dark:text-text-secondary">
                   {auth.currentUser.email}
                 </p>
               </div>
             </div>
             {hasPassword && (
-              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded border border-emerald-400/20 flex items-center gap-1">
+              <span className="text-[10px] font-bold text-accent-green bg-emerald-400/10 px-2 py-1 rounded border border-emerald-400/20 flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3" />
                 {isRtl ? "مرتبط" : "Linked"}
               </span>
@@ -204,7 +204,7 @@ export default function AccountLinkingManager({
 
       {!hasPassword && (
         <div className="pt-2 border-t border-slate-300 dark:border-slate-800/80 mt-2 space-y-3">
-          <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg leading-snug">
+          <div className="flex items-center gap-2 text-[11px] text-accent-orange bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg leading-snug">
             <AlertCircle className="w-4 h-4 shrink-0" />
             {isRtl
               ? "حسابك يستخدم Google فقط. أضف كلمة مرور لتتمكن من الدخول بالبريد مستقبلاً."
@@ -214,7 +214,7 @@ export default function AccountLinkingManager({
           <div className="flex gap-2">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-4 w-4 text-slate-700 dark:text-slate-400" />
+                <Lock className="h-4 w-4 text-text-primary dark:text-text-secondary" />
               </div>
               <input
                 type="password"
@@ -225,14 +225,14 @@ export default function AccountLinkingManager({
                     ? "كلمة مرور جديدة (6 أحرف على الأقل)"
                     : "New Password (min 6 chars)"
                 }
-                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-xs rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block pl-10 p-3"
+                className="w-full bg-surface-primary border border-slate-300 dark:border-slate-700 text-text-primary text-xs rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block pl-10 p-3"
                 dir={isRtl ? "rtl" : "ltr"}
               />
             </div>
             <button
               onClick={handleLinkPassword}
               disabled={loading || newPassword.length < 6}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white font-bold py-3 px-4 rounded-xl transition-colors text-xs whitespace-nowrap"
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-text-primary font-bold py-3 px-4 rounded-xl transition-colors text-xs whitespace-nowrap"
             >
               {loading
                 ? isRtl
@@ -251,7 +251,7 @@ export default function AccountLinkingManager({
           className={`p-3 rounded-xl border text-[11px] font-semibold leading-snug ${
             message.type === "error"
               ? "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
-              : "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+              : "bg-emerald-500/10 border-emerald-500/20 text-accent-green"
           }`}
         >
           {message.text}

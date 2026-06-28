@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { 
   Home, 
   BrainCircuit, 
@@ -20,20 +21,22 @@ import DeviceShell from "./components/DeviceShell";
 import Onboarding from "./components/Onboarding";
 import Dashboard from "./components/Dashboard";
 import AICoach from "./components/AICoach";
-import Simulator from "./components/Simulator";
 import HealthRatio from "./components/HealthRatio";
 import StatementParser from "./components/StatementParser";
+import CardScanner from "./components/CardScanner";
 import SettingsTab from "./components/SettingsTab";
 import LaunchVideo from "./components/LaunchVideo";
 import WelcomeScreen from "./components/WelcomeScreen";
 import Auth from "./components/Auth";
 import Avatar from "./components/Avatar";
 
-import { auth } from "./lib/firebase";
+import { auth, db } from "./lib/firebase";
 import { onAuthStateChanged, User, signOut } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 import FinancialNotes from "./components/FinancialNotes";
 import ServicesTab from "./components/ServicesTab";
+import DebtPlanner from "./components/DebtPlanner";
 import MagneticWrapper from "./components/MagneticWrapper";
 import Header from "./components/Header";
 import NashmiProTab from "./components/NashmiProTab";
@@ -44,9 +47,13 @@ import CareerProfileScreen from "./components/CareerProfileScreen";
 import AIInterviewSimulator from "./components/AIInterviewSimulator";
 import ProjectsTab from "./components/ProjectsTab";
 import NotificationCenter from "./components/NotificationCenter";
+import SearchTab from "./components/SearchTab";
+import SavedTab from "./components/SavedTab";
+import AnalyticsTab from "./components/AnalyticsTab";
+import RecommendationsTab from "./components/RecommendationsTab";
 import { getFinancialProfile, saveFinancialProfile } from "./lib/finance";
 import { translations } from "./translations";
-import { FinancialAnalysis, ChatMessage, Transaction, SpendingCategory } from "./types";
+import { FinancialAnalysis, ChatMessage, Transaction, SpendingCategory, ActiveCard } from "./types";
 import { 
   perfectProfile, 
   perfectProfileEnglish, 
@@ -55,11 +62,13 @@ import {
 } from "./profiles";
 
 import { RewardsService, RewardProfile } from "./lib/rewards";
+import { getUserSubscription } from "./lib/subscription";
 
 export default function App() {
   // Authentication State
   const [user, setUser] = useState<User | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(true);
 
   // Rewards Engine State
   const [rewardProfile, setRewardProfile] = useState<RewardProfile>({
@@ -84,7 +93,23 @@ export default function App() {
   });
 
   // 3. Navigation State
-  const [activeTab, setActiveTab] = useState<"home" | "coach" | "simulation" | "healthScore" | "upload" | "settings" | "notes" | "nashmiPro" | "rewards" | "services" | "calendar" | "chat" | "projects" | "careerProfile" | "interviewSimulator" | "notifications">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "scan" | "coach" | "simulation" | "healthScore" | "upload" | "settings" | "notes" | "nashmiPro" | "rewards" | "services" | "calendar" | "chat" | "projects" | "careerProfile" | "interviewSimulator" | "notifications" | "search" | "saved" | "analytics" | "recommendations" | "debtPlanner">("home");
+
+  // 4. User Role
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // 4.5 Active Card
+  const [activeCard, setActiveCard] = useState<ActiveCard | null>(() => {
+    const saved = localStorage.getItem("finx_active_card");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
 
   // 5. Consolidated Financial Analysis State
   const [analysis, setAnalysis] = useState<FinancialAnalysis>(perfectProfile);
@@ -100,9 +125,7 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState<boolean>(false);
 
   // 8. Engagement & Pro State
-  const [isPro, setIsPro] = useState<boolean>(() => {
-    return localStorage.getItem("finx_pro_status") === "true";
-  });
+  const [isPro, setIsPro] = useState<boolean>(false);
   const addPoints = async (amount: number, reason: string = "App engagement") => {
     if (!user) return;
     await RewardsService.awardPoints(user.uid, amount, isPro, reason);
@@ -110,13 +133,39 @@ export default function App() {
 
   // Track Firebase Auth State
   useEffect(() => {
-    let unsubProfile: (() => void) | undefined;
-
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       
       if (currentUser) {
         try {
+          const prefsDoc = await getDoc(doc(db, "users", currentUser.uid, "settings", "smsPreferences"));
+          const prefsData = prefsDoc.data();
+          if (!prefsData?.verified) {
+             setIsPhoneVerified(false);
+             setAuthChecking(false);
+             return; // Stop initialization until verified
+          }
+          setIsPhoneVerified(true);
+        } catch (e) {
+          console.error("Error checking phone verification:", e);
+        }
+      } else {
+        setActiveTab("home");
+      }
+
+      setAuthChecking(false);
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    let unsubProfile: (() => void) | undefined;
+    const initializeUserApp = async (currentUser: User) => {
+        try {
+          const sub = await getUserSubscription(currentUser.uid);
+          setIsPro(sub.plan === "premium" || sub.plan === "elite");
+
           const profile = await RewardsService.initializeProfile(currentUser.uid);
           const { streakUpdated, newStreak } = await RewardsService.processDailyStreak(currentUser.uid, profile);
           
@@ -129,30 +178,44 @@ export default function App() {
              await RewardsService.unlockAchievement(currentUser.uid, "7_day_streak", "7-Day Streak", 50, isPro);
           }
 
+          const onboardingDoc = await getDoc(doc(db, "users", currentUser.uid, "settings", "onboarding"));
+          if (onboardingDoc.exists()) {
+             const data = onboardingDoc.data();
+             setUserRole(data.selectedRole || null);
+          }
+
+          const activeCardDoc = await getDoc(doc(db, "users", currentUser.uid, "settings", "activeCard"));
+          if (activeCardDoc.exists()) {
+             const data = activeCardDoc.data() as ActiveCard;
+             setActiveCard(data);
+             localStorage.setItem("finx_active_card", JSON.stringify(data));
+          }
+
           unsubProfile = RewardsService.subscribeToProfile(currentUser.uid, (data) => {
             setRewardProfile(data);
           });
           
-          if (!sessionStorage.getItem("finx_welcome_shown")) {
+          const userDocRef = doc(db, "users", currentUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          
+          if (!userDocSnap.exists() || !userDocSnap.data()?.welcomeCardSeen) {
             setShowWelcome(true);
-            sessionStorage.setItem("finx_welcome_shown", "true");
+          } else {
+            setShowWelcome(false);
           }
         } catch (e) {
-          console.error("Error setting up Rewards ecosystem:", e);
+          console.error("Error initializing user app:", e);
         }
-      } else {
-        setActiveTab("home");
-        if (unsubProfile) unsubProfile();
-      }
+    };
 
-      setAuthChecking(false);
-    });
+    if (user && isPhoneVerified) {
+       initializeUserApp(user);
+    }
     
     return () => {
-      unsubscribe();
       if (unsubProfile) unsubProfile();
     };
-  }, [isPro]);
+  }, [user, isPhoneVerified, isPro]);
 
   // Auto-save Financial Profile when it changes
   useEffect(() => {
@@ -162,7 +225,6 @@ export default function App() {
   }, [analysis, user]);
 
   const handleLogout = async () => {
-    sessionStorage.removeItem("finx_welcome_shown");
     setActiveTab("home");
     await signOut(auth);
   };
@@ -171,10 +233,7 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("finx_language", lang);
     document.documentElement.lang = lang;
-    document.documentElement.dir = 'ltr'; // FORCE LTR layout at the root level
-
-    // Choose the appropriate profile template centered on local language
-    setAnalysis(lang === "ar" ? perfectProfile : perfectProfileEnglish);
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'; 
   }, [lang]);
 
   // Handle onboarding status
@@ -189,17 +248,21 @@ export default function App() {
     localStorage.removeItem("finx_onboarding_dismissed");
   };
 
-  // Re-populate system welcome greeting on chat startup or language shift
+  // Ensure system welcome greeting is present on empty chat startup
   useEffect(() => {
-    const welcomeText = translations[lang].chatGreeting;
-    setChatHistory([
-      {
-        id: "greet",
-        role: "assistant",
-        content: welcomeText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    setChatHistory(prev => {
+      if (prev.length === 0) {
+        return [
+          {
+            id: "greet",
+            role: "assistant",
+            content: translations[lang].chatGreeting,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          }
+        ];
       }
-    ]);
+      return prev;
+    });
   }, [lang]);
 
   // Dynamic Transaction Additions (Recalculates totals & scores instantly!)
@@ -235,16 +298,20 @@ export default function App() {
       }
 
       // Automatically assign transaction values to category list
-      const updatedCategories = [...prev.categories];
-      const matchCat = updatedCategories.find(c => c.name === newTx.category);
-      if (matchCat && newTx.amount < 0) {
-        matchCat.value += Math.abs(newTx.amount);
-      } else if (!matchCat && newTx.amount < 0) {
-        updatedCategories.push({
+      const updatedCategories = prev.categories.map(c => 
+        c.name === newTx.category && newTx.amount < 0
+          ? { ...c, value: c.value + Math.abs(newTx.amount) }
+          : c
+      );
+      
+      let finalCategories = updatedCategories;
+      const matchCat = prev.categories.find(c => c.name === newTx.category);
+      if (!matchCat && newTx.amount < 0) {
+        finalCategories = [...updatedCategories, {
           name: newTx.category,
           value: Math.abs(newTx.amount),
           color: "#0891B2"
-        });
+        }];
       }
 
       return {
@@ -254,7 +321,7 @@ export default function App() {
         savingsRate: newSavingsRate,
         healthScore: finalScore,
         transactions: updatedTxList,
-        categories: updatedCategories,
+        categories: finalCategories,
       };
     });
   };
@@ -267,7 +334,7 @@ export default function App() {
   const handleUpdateTransactionCategory = (index: number, newCategory: string) => {
     setAnalysis(prev => {
       const newTransactions = [...prev.transactions];
-      newTransactions[index].category = newCategory;
+      newTransactions[index] = { ...newTransactions[index], category: newCategory };
       return { ...prev, transactions: newTransactions };
     });
   };
@@ -276,9 +343,9 @@ export default function App() {
   const renderActiveScreen = () => {
     switch (activeTab) {
       case "projects":
-        return <ProjectsTab lang={lang} user={user} />;
+        return <ProjectsTab lang={lang} user={user} setActiveTab={setActiveTab} />;
       case "home":
-        return <Dashboard lang={lang} analysis={analysis} setActiveTab={setActiveTab} />;
+        return <Dashboard lang={lang} analysis={analysis} setActiveTab={setActiveTab} userRole={userRole} activeCard={activeCard} />;
       case "coach":
         return <AICoach 
                  lang={lang} 
@@ -301,10 +368,41 @@ export default function App() {
            }}
            onAddTransaction={(tx) => { handleAddTransaction(tx); addPoints(30); }}
         />;
-      case "simulation":
-        return <Simulator lang={lang} analysis={analysis} />;
       case "healthScore":
         return <HealthRatio lang={lang} analysis={analysis} />;
+      case "scan":
+        return (
+          <CardScanner 
+            lang={lang} 
+            onSaveCard={(cardData: ActiveCard) => {
+              // Add a mockup transaction to trigger expense analysis
+              const mockAnalysisTransaction = {
+                id: Math.random().toString(36).substr(2, 9),
+                date: new Date().toISOString().split("T")[0],
+                desc: "INITIAL CARD SYNC",
+                amount: 0,
+                type: "expense" as const,
+                category: "Other",
+                note: `Linked card ${cardData.brand} ending in ${cardData.cardNumber.slice(-4)}`
+              };
+              
+              handleAddTransaction(mockAnalysisTransaction);
+              addPoints(50);
+              
+              // Persist active card
+              setActiveCard(cardData);
+              localStorage.setItem("finx_active_card", JSON.stringify(cardData));
+              
+              if (user) {
+                setDoc(doc(db, "users", user.uid, "settings", "activeCard"), cardData);
+              }
+              
+              // Move to dashboard or coach to show expense analysis started
+              setActiveTab("home");
+            }}
+            onCancel={() => setActiveTab("home")}
+          />
+        );
       case "upload":
         return (
           <StatementParser 
@@ -341,13 +439,24 @@ export default function App() {
             onResetOnboarding={resetOnboarding}
             onLogout={handleLogout}
             onNavigateRewards={() => setActiveTab('rewards')}
-            onNavigateSimulation={() => setActiveTab('simulation')}
             onNavigateNotes={() => setActiveTab('notes')}
             onNavigateCareerProfile={() => setActiveTab('careerProfile')}
             onNavigateInterviewSimulator={() => setActiveTab('interviewSimulator')}
             onNavigateProjects={() => setActiveTab('projects')}
             onNavigateNotifications={() => setActiveTab('notifications')}
             onNavigateCoach={() => setActiveTab('coach')}
+            activeCard={activeCard}
+            onSaveCard={(cardData) => {
+              setActiveCard(cardData);
+              localStorage.setItem("finx_active_card", JSON.stringify(cardData));
+              if (user) {
+                setDoc(doc(db, "users", user.uid, "settings", "activeCard"), cardData);
+              }
+            }}
+            onAddTransaction={handleAddTransaction}
+            onSubscriptionSuccess={() => {
+               setIsPro(true);
+            }}
           />
         );
       case "careerProfile":
@@ -355,9 +464,19 @@ export default function App() {
       case "interviewSimulator":
         return <AIInterviewSimulator lang={lang} />;
       case "notifications":
-        return <NotificationCenter lang={lang} />;
+        return <NotificationCenter lang={lang} setActiveTab={setActiveTab} />;
+      case "search":
+        return <SearchTab lang={lang} user={user!} setActiveTab={setActiveTab} />;
+      case "saved":
+        return <SavedTab lang={lang} user={user!} />;
+      case "analytics":
+        return <AnalyticsTab lang={lang} user={user!} userRole={userRole} />;
+      case "recommendations":
+        return <RecommendationsTab lang={lang} user={user!} userRole={userRole} setActiveTab={setActiveTab} />;
+      case "debtPlanner":
+        return <DebtPlanner lang={lang} />;
       default:
-        return <Dashboard lang={lang} analysis={analysis} setActiveTab={setActiveTab} />;
+        return <Dashboard lang={lang} analysis={analysis} setActiveTab={setActiveTab} userRole={userRole} activeCard={activeCard} />;
     }
   };
 
@@ -368,7 +487,7 @@ export default function App() {
   if (showOnboarding) {
     return (
       <DeviceShell lang={lang}>
-        <Onboarding lang={lang} onComplete={completeOnboarding} />
+        <Onboarding lang={lang} onComplete={completeOnboarding} setUserRole={setUserRole} />
       </DeviceShell>
     );
   }
@@ -376,32 +495,17 @@ export default function App() {
   if (authChecking) {
     return (
       <DeviceShell lang={lang}>
-        <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-[#020617] text-slate-700 dark:text-slate-400">
+        <div className="flex-1 flex items-center justify-center bg-bg-primary text-text-secondary">
           <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       </DeviceShell>
     );
   }
 
-  if (!user) {
+  if (!user || (user && !isPhoneVerified)) {
     return (
       <DeviceShell lang={lang}>
-        <Auth lang={lang} />
-      </DeviceShell>
-    );
-  }
-
-  if (showWelcome) {
-    return (
-      <DeviceShell lang={lang}>
-        <WelcomeScreen 
-          lang={lang} 
-          name={user.displayName || user.email?.split('@')[0] || null} 
-          onComplete={() => {
-            setShowWelcome(false);
-            setActiveTab("home");
-          }} 
-        />
+        <Auth lang={lang} user={user} onVerified={() => setIsPhoneVerified(true)} />
       </DeviceShell>
     );
   }
@@ -411,19 +515,19 @@ export default function App() {
     { id: "home", label: t.home, icon: <Home className="w-5 h-5" /> },
     { id: "services", label: lang === "ar" ? "الخدمات" : "Services", icon: <Briefcase className="w-5 h-5" /> },
     { id: "coach", label: t.coach, icon: <BrainCircuit className="w-5 h-5" /> },
-    { id: "projects", label: lang === "ar" ? "المشاريع والاستثمار" : "Projects", icon: <Building2 className="w-5 h-5" /> },
+    { id: "projects", label: "نشمي", icon: <Building2 className="w-5 h-5" /> },
   ] as const;
 
   const getTabTitle = () => {
     switch (activeTab) {
-      case "projects": return lang === "ar" ? "المشاريع والاستثمار" : "Projects & Investments";
+      case "projects": return "نشمي";
       case "home": return t.home;
       case "services": return lang === "ar" ? "الخدمات" : "Services";
       case "notes": return t.notes || "Notes";
-      case "simulation": return t.simulation;
       case "coach": return t.coach;
       case "careerProfile": return lang === "ar" ? "ملفي المهني" : "Career Profile";
       case "upload": return t.upload || "Upload";
+      case "scan": return lang === "ar" ? "مسح البطاقة" : "Scan Card";
       case "settings": return t.settings || "Settings";
       case "healthScore": return t.healthScore || "Health Score";
       case "calendar": return lang === "ar" ? "تقويم جوجل" : "Google Calendar";
@@ -434,28 +538,57 @@ export default function App() {
 
   return (
     <DeviceShell lang={lang}>
-      
-      <Header 
-        user={user}
-        lang={lang}
-        setLang={setLang}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        appName={t.appName}
-        tabTitle={getTabTitle()}
-        points={rewardProfile.points}
-        streak={rewardProfile.currentStreak}
-        isPro={isPro}
-      />
+      <AnimatePresence mode="wait">
+        {showWelcome ? (
+          <motion.div
+            key="welcome"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+            className="absolute inset-0 z-50"
+          >
+            <WelcomeScreen 
+              lang={lang} 
+              name={user.displayName || user.email?.split('@')[0] || null} 
+              onComplete={async () => {
+                setShowWelcome(false);
+                setActiveTab("home");
+                if (user) {
+                  await setDoc(doc(db, "users", user.uid), { welcomeCardSeen: true }, { merge: true });
+                }
+              }} 
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="main-app"
+            initial={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
+            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+            className="absolute inset-0 flex flex-col"
+          >
+            <Header 
+              user={user}
+              lang={lang}
+              setLang={setLang}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              appName={t.appName}
+              tabTitle={getTabTitle()}
+              points={rewardProfile.points}
+              streak={rewardProfile.currentStreak}
+              isPro={isPro}
+            />
 
       {/* Main active route scroll screen container */}
-      <div className="flex-1 overflow-hidden flex flex-col relative bg-gradient-to-b from-slate-50 dark:from-[#020617] via-white dark:via-slate-900 to-slate-100 dark:to-slate-950">
+      <div className="flex-1 overflow-hidden flex flex-col relative bg-bg-primary">
         {renderActiveScreen()}
       </div>
 
       {/* Structured Bottom Navigation dock */}
       <div 
-        className="bg-slate-50 dark:bg-[#020617] border-t border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 py-1.5 px-2 shrink-0 select-none pb-safe relative z-50"
+        className="bg-bg-primary border-t border-border-primary text-text-primary py-1.5 px-2 shrink-0 select-none pb-safe relative z-50"
       >
         <nav className="grid grid-cols-5 gap-1 relative" dir={isRtl ? 'rtl' : 'ltr'}>
           {tabs.slice(0, 2).map((tab) => {
@@ -467,8 +600,8 @@ export default function App() {
                 isActive={isActive}
                 className={`flex flex-col items-center justify-center py-2 rounded-xl transition-colors cursor-pointer w-full ${
                   isActive 
-                    ? "text-indigo-600 dark:text-indigo-400 bg-white dark:bg-[#0f172a]/40 shadow-inner font-extrabold" 
-                    : "text-slate-700 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-700 dark:text-slate-300 hover:bg-[#0f172a]/20"
+                    ? "text-indigo-600 dark:text-indigo-400 bg-surface-primary shadow-inner font-extrabold" 
+                    : "text-text-secondary hover:text-text-primary dark:hover:text-text-primary hover:bg-bg-secondary"
                 }`}
               >
                 <div className={`transition-transform duration-300 ${isActive ? "scale-105 text-indigo-600 dark:text-indigo-400" : ""}`}>
@@ -488,8 +621,8 @@ export default function App() {
           <div className="flex justify-center items-center relative">
             <div className="absolute -top-2.5">
               <MagneticWrapper 
-                onClick={() => setActiveTab("upload")}
-                className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-full flex items-center justify-center text-white shadow-[0_4px_12px_rgba(79,70,229,0.25)] border-[4px] border-slate-50 dark:border-[#020617] hover:shadow-[0_6px_16px_rgba(79,70,229,0.4)] transition-all"
+                onClick={() => setActiveTab("scan")}
+                className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-full flex items-center justify-center text-white shadow-[0_4px_12px_rgba(79,70,229,0.25)] border-[4px] border-bg-primary hover:shadow-[0_6px_16px_rgba(79,70,229,0.4)] transition-all"
               >
                 <ScanLine className="w-6 h-6" />
               </MagneticWrapper>
@@ -505,8 +638,8 @@ export default function App() {
                 isActive={isActive}
                 className={`flex flex-col items-center justify-center py-2 rounded-xl transition-colors cursor-pointer w-full ${
                   isActive 
-                    ? "text-indigo-600 dark:text-indigo-400 bg-white dark:bg-[#0f172a]/40 shadow-inner font-extrabold" 
-                    : "text-slate-700 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-700 dark:text-slate-300 hover:bg-[#0f172a]/20"
+                    ? "text-indigo-600 dark:text-indigo-400 bg-surface-primary shadow-inner font-extrabold" 
+                    : "text-text-secondary hover:text-text-primary dark:hover:text-text-primary hover:bg-bg-secondary"
                 }`}
               >
                 <div className={`transition-transform duration-300 ${isActive ? "scale-105 text-indigo-600 dark:text-indigo-400" : ""}`}>
@@ -525,7 +658,9 @@ export default function App() {
       </div>
 
       {showLaunchVideo && <LaunchVideo onComplete={() => setShowLaunchVideo(false)} />}
-
+          </motion.div>
+        )}
+      </AnimatePresence>
     </DeviceShell>
   );
 }

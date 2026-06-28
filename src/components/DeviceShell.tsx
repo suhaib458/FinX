@@ -24,29 +24,27 @@ export default function DeviceShell({ children, lang }: DeviceShellProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-[#020617] via-white dark:via-slate-900 to-indigo-950/60 flex flex-col items-center justify-center p-0 md:p-6 select-none font-sans overflow-x-hidden">
-      {/* Decorative desktop glows - matching Sophisticated Dark design */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-indigo-500/5 blur-[130px] pointer-events-none glow-overlay"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-blue-600/5 blur-[130px] pointer-events-none glow-overlay"></div>
-
+    <div className="relative min-h-screen studio-preview-bg flex flex-col items-center justify-center p-0 md:p-6 select-none font-sans overflow-x-hidden">
       {/* Main Container */}
-      <div className="relative w-full md:max-w-[420px] h-screen md:h-[860px] bg-slate-50 dark:bg-[#020617] md:rounded-[48px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border-0 md:border-8 border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300">
+      <div 
+        id="device-shell"
+        className="relative w-full md:max-w-[420px] h-screen md:h-[860px] bg-[#F7F8FA] dark:bg-transparent md:rounded-[48px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border-0 md:border-8 border-border-primary flex flex-col overflow-hidden transition-all duration-300">
         
         {/* Physical screen window */}
         <div 
-          className="flex-1 w-full flex flex-col overflow-hidden relative bg-slate-50 dark:bg-[#020617] text-slate-800 dark:text-slate-200"
+          className="flex-1 w-full flex flex-col overflow-hidden relative bg-bg-primary text-text-primary"
         >
           {children}
         </div>
 
         {/* Simulated iOS Home Bar for Mobile design style (on Desktop only) */}
-        <div className="hidden md:flex justify-center bg-slate-50 dark:bg-[#020617] py-2.5 z-40 border-t border-slate-200/60 dark:border-slate-800/40">
-          <div className="w-32 h-1 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+        <div className="hidden md:flex justify-center bg-bg-primary py-2.5 z-40 border-t border-border-primary">
+          <div className="w-32 h-1 bg-border-primary rounded-full"></div>
         </div>
       </div>
       
       {/* Short instructions on how to toggle on desktop */}
-      <p className="hidden md:block text-xs mt-4 text-center text-slate-700 dark:text-slate-400 max-w-sm leading-relaxed">
+      <p className="hidden md:block text-xs mt-4 text-center text-text-secondary max-w-sm leading-relaxed">
         {lang === "ar" 
           ? "💡 هذا نموذج معاينة للهواتف المحمولة. يدعم المظهر الحركي فنيكس بنسبة 100% والتصميم تفاعلي بالكامل."
           : "💡 This is a mobile app simulator. Interaction elements are 100% responsive and ready for hackathon presentation."}

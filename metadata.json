@@ -1,6 +1,6 @@
 {
   "name": "FinX",
   "description": "Simple, elegant, and highly intuitive AI financial assistant supporting dynamic forecasting, financial health scoring, and statement analysis in Arabic and English.",
-  "requestFramePermissions": ["microphone", "publickey-credentials-create", "publickey-credentials-get"],
+  "requestFramePermissions": ["microphone", "publickey-credentials-create", "publickey-credentials-get", "camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

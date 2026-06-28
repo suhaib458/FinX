@@ -4,51 +4,40 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && (!request.resource.data.keys().hasAny(['subscription', 'usage']));
+      allow update: if isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['subscription', 'usage']));
+      
+      match /passkeys/{document=**} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only server can write passkeys
+      }
+      
+      match /{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    match /conversations/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /finx_projects/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /finx_investment_requests/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+    
+    match /savedItems/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
-
-    match /users/{userId} {
-      allow get, list: if isOwner(userId);
-      allow create, update, delete: if isOwner(userId);
-    }
-    
-    match /users/{userId}/settings/smsPreferences {
-      allow read, write: if isOwner(userId);
-    }
-
-    match /users/{userId}/notes/{noteId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    match /users/{userId}/interviews/{interviewId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    match /users/{userId}/rewardProfile/main {
-      allow read, write: if isOwner(userId);
-    }
-
-    match /users/{userId}/rewardsActivity/{activityId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    match /conversations/{conversationId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    match /finx_projects/{projectId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.founderId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.founderId == request.auth.uid;
-    }
-
-    match /finx_investment_requests/{requestId} {
-      allow read: if isSignedIn() && (resource.data.investorId == request.auth.uid || resource.data.founderId == request.auth.uid);
-      allow create: if isSignedIn() && request.resource.data.investorId == request.auth.uid;
-      allow update, delete: if isSignedIn() && (resource.data.investorId == request.auth.uid || resource.data.founderId == request.auth.uid);
-    }
   }
 }
+

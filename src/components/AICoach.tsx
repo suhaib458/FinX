@@ -112,14 +112,6 @@ export default function AICoach({
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
 
-  // Suggested direct prompt chips
-  const presets = [
-    t.presetSaveQuestion,
-    t.presetScoreQuestion,
-    t.presetLoanQuestion,
-    t.presetCareerQuestion,
-  ];
-
   // Chat History State
   const [conversations, setConversations] = useState<any[]>([]);
   const [showHistorySidebar, setShowHistorySidebar] = useState(false);
@@ -398,10 +390,6 @@ export default function AICoach({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectionMode, selectedMessages, messages]);
 
-  // Voice Input State
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-
   // Audio Recording State
   const [isAudioRecording, setIsAudioRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -417,53 +405,6 @@ export default function AICoach({
   // File Attachments State
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // Initialize SpeechRecognition
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-
-      recognitionRef.current.onresult = (event: any) => {
-        let transcript = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          transcript += event.results[i][0].transcript;
-        }
-        setInput((prev) => {
-          // If the recognition gives an interim result, we'll just replace the last pending part,
-          // or for simplicity, we just set the whole spoken text if it's new.
-          // Due to complexity, let's keep it simple: we set input to transcript for brevity, or append it.
-          // Wait, 'continuous=true' appends it. So let's just use final results if possible, or interim.
-          return transcript;
-        });
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        if (event.error === "not-allowed") {
-          alert(
-            lang === "ar"
-              ? "يرجى السماح بالوصول إلى الميكروفون لاستخدام ميزة الصوت."
-              : "Microphone permission is required to use voice input.",
-          );
-        }
-        setIsListening(false);
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
-    }
-  }, []);
-
-  useEffect(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.lang = lang === "ar" ? "ar-SA" : "en-US";
-    }
-  }, [lang]);
 
   const startRecording = async () => {
     try {
@@ -494,16 +435,6 @@ export default function AICoach({
       timerIntervalRef.current = window.setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-
-      setInput(""); // Clear previous input when starting fresh recording
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.start();
-          setIsListening(true);
-        } catch (err) {
-          console.error("Speech recognition could not be started", err);
-        }
-      }
     } catch (err) {
       console.error("Failed to access microphone", err);
       alert(
@@ -519,12 +450,8 @@ export default function AICoach({
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
     }
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-    }
 
     setIsAudioRecording(false);
-    setIsListening(false);
 
     if (timerIntervalRef.current !== null) {
       clearInterval(timerIntervalRef.current);
@@ -536,7 +463,6 @@ export default function AICoach({
     setAudioBlob(null);
     setAudioUrl(null);
     setRecordingTime(0);
-    setInput("");
     setIsPlayingPreview(false);
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause();
@@ -607,11 +533,6 @@ export default function AICoach({
 
     if (isAudioRecording) {
       stopRecording();
-    }
-
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
     }
 
     const userMsgId = Date.now().toString();
@@ -724,13 +645,18 @@ export default function AICoach({
 
         try {
           let userCareerProfile = null;
+          let token = "";
           if (auth.currentUser) {
             userCareerProfile = await getCareerProfile(auth.currentUser.uid);
+            token = await auth.currentUser.getIdToken();
           }
           
           const response = await fetch("/api/coach-stream", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {})
+            },
             body: JSON.stringify({
               messages: slicedMessages,
               language: lang,
@@ -1045,7 +971,7 @@ export default function AICoach({
              );
           } else {
              return (
-               <div className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 rounded-xl p-4 my-3 skeleton-loader animate-pulse">
+               <div className="bg-bg-secondary border border-border-primary/50 rounded-xl p-4 my-3 skeleton-loader animate-pulse">
                  <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/3 mb-4"></div>
                  <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/4 mb-2"></div>
                  <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
@@ -1065,7 +991,7 @@ export default function AICoach({
         </pre>
       ) : (
         <code
-          className="bg-slate-100 dark:bg-slate-800 dark:bg-slate-800/50 px-1.5 py-0.5 rounded text-indigo-500 dark:text-indigo-300 font-mono text-[11px]"
+          className="bg-bg-secondary dark:bg-slate-800/50 px-1.5 py-0.5 rounded text-indigo-500 dark:text-indigo-300 font-mono text-[11px]"
           {...props}
         >
           {children}
@@ -1100,7 +1026,7 @@ export default function AICoach({
     ),
     li: ({ node, ...props }: any) => (
       <li
-        className={`text-slate-700 dark:text-slate-300 leading-relaxed flex items-start gap-2 relative`}
+        className={`text-text-primary leading-relaxed flex items-start gap-2 relative`}
         {...props}
       >
         <span className="mt-1.5 shrink-0 block w-1.5 h-1.5 rounded-full bg-indigo-500/50" />
@@ -1109,18 +1035,18 @@ export default function AICoach({
     ),
     p: ({ node, ...props }: any) => (
       <p
-        className="mb-2 last:mb-0 leading-relaxed text-slate-800 dark:text-slate-200 break-words"
+        className="mb-2 last:mb-0 leading-relaxed text-text-primary break-words"
         {...props}
       />
     ),
     pre: ({ node, ...props }: any) => (
       <pre
-        className="p-3 bg-white dark:bg-slate-950 rounded-xl overflow-x-auto my-3 text-[11px] font-mono border border-slate-200 dark:border-slate-800"
+        className="p-3 bg-white dark:bg-slate-950 rounded-xl overflow-x-auto my-3 text-[11px] font-mono border border-border-primary"
         {...props}
       />
     ),
     h1: ({ node, ...props }: any) => (
-      <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-3 mt-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+      <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-3 mt-4 border-b border-border-primary pb-2">
         <Briefcase className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
         {props.children}
       </h1>
@@ -1132,7 +1058,7 @@ export default function AICoach({
       </h2>
     ),
     h3: ({ node, ...props }: any) => (
-      <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1 mt-2">
+      <h3 className="text-sm font-bold text-text-primary mb-1 mt-2">
         {props.children}
       </h3>
     ),
@@ -1140,15 +1066,15 @@ export default function AICoach({
 
   return (
     <div
-      className={`flex-1 flex h-full overflow-hidden bg-slate-50 dark:bg-[#020617] ${isRtl ? "flex-row-reverse text-right" : "flex-row text-left"}`}
+      className={`relative flex-1 flex h-full overflow-hidden bg-[#F7F8FA] dark:bg-transparent ${isRtl ? "flex-row-reverse text-right" : "flex-row text-left"}`}
     >
       {/* Sidebar for History */}
       {showHistorySidebar && (
         <div
-          className={`absolute sm:relative z-20 h-full w-full sm:w-[260px] md:w-72 shrink-0 border-${isRtl ? "l" : "r"} border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#020617] sm:bg-white dark:bg-slate-900/40 flex flex-col shadow-2xl sm:shadow-none`}
+          className={`absolute top-0 bottom-0 ${isRtl ? 'right-0' : 'left-0'} sm:relative z-20 h-full w-full sm:w-[260px] md:w-72 shrink-0 border-${isRtl ? "l" : "r"} border-border-primary bg-[#F7F8FA] dark:bg-transparent sm:bg-surface-primary/40 flex flex-col shadow-2xl sm:shadow-none`}
         >
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
-            <h3 className="text-slate-900 dark:text-white text-sm font-semibold flex items-center gap-2">
+          <div className="p-4 border-b border-border-primary flex items-center justify-between shrink-0">
+            <h3 className="text-text-primary text-sm font-semibold flex items-center gap-2">
               <Bot className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               {lang === "ar" ? "المحادثات السابقة" : "Chat History"}
             </h3>
@@ -1162,7 +1088,7 @@ export default function AICoach({
               </button>
               <button
                 onClick={() => setShowHistorySidebar(false)}
-                className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-400 sm:hidden"
+                className="p-1.5 rounded-md hover:bg-bg-secondary text-text-primary dark:text-text-secondary sm:hidden"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1170,7 +1096,7 @@ export default function AICoach({
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {conversations.length === 0 && (
-              <div className="text-xs text-slate-700 dark:text-slate-400 text-center mt-6">
+              <div className="text-xs text-text-primary dark:text-text-secondary text-center mt-6">
                 {lang === "ar"
                   ? "لا توجد محادثات سابقة"
                   : "No previous conversations"}
@@ -1179,23 +1105,23 @@ export default function AICoach({
             {conversations.map((convo) => (
               <div
                 key={convo.id}
-                className={`p-3 rounded-lg cursor-pointer transition-colors group relative ${activeConversationId === convo.id ? "bg-indigo-500/15 border border-indigo-500/30" : "hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800/50"}`}
+                className={`p-3 rounded-lg cursor-pointer transition-colors group relative ${activeConversationId === convo.id ? "bg-indigo-500/15 border border-indigo-500/30" : "hover:bg-bg-secondary dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800/50"}`}
                 onClick={() => {
                   loadConversation(convo);
                   if (window.innerWidth < 640) setShowHistorySidebar(false);
                 }}
               >
                 <div
-                  className={`text-sm tracking-tight text-slate-900 dark:text-white mb-1.5 line-clamp-2 ${isRtl ? "pl-6" : "pr-6"}`}
+                  className={`text-sm tracking-tight text-text-primary mb-1.5 line-clamp-2 ${isRtl ? "pl-6" : "pr-6"}`}
                 >
                   {convo.title || "New Chat"}
                 </div>
-                <div className="text-[10px] text-slate-700 dark:text-slate-400 truncate opacity-80">
+                <div className="text-[10px] text-text-primary dark:text-text-secondary truncate opacity-80">
                   {convo.lastMessagePreview}
                 </div>
                 <button
                   onClick={(e) => confirmDeleteConversation(e, convo.id)}
-                  className={`absolute top-2.5 ${isRtl ? "left-2" : "right-2"} p-1.5 rounded text-slate-700 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-rose-600 dark:text-rose-400 opacity-0 group-hover:opacity-100 transition-all`}
+                  className={`absolute top-2.5 ${isRtl ? "left-2" : "right-2"} p-1.5 rounded text-text-primary dark:text-text-secondary hover:bg-bg-secondary hover:text-rose-600 dark:text-rose-400 opacity-0 group-hover:opacity-100 transition-all`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -1203,7 +1129,7 @@ export default function AICoach({
             ))}
           </div>
           {conversations.length > 0 && (
-            <div className="p-3 border-t border-slate-200 dark:border-slate-800 shrink-0">
+            <div className="p-3 border-t border-border-primary shrink-0">
               <button
                 onClick={requestDeleteAllConversations}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/30 rounded-lg transition-colors cursor-pointer"
@@ -1220,11 +1146,11 @@ export default function AICoach({
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* Premium Minimal Header */}
         {!selectionMode ? (
-          <div className="h-[60px] px-5 border-b border-slate-200 dark:border-slate-800/60 bg-slate-50 dark:bg-[#020617] shrink-0 flex items-center justify-between z-10 w-full relative">
+          <div className="h-[60px] px-5 border-b border-border-primary/60 bg-[#F7F8FA] dark:bg-transparent shrink-0 flex items-center justify-between z-10 w-full relative">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowHistorySidebar(!showHistorySidebar)}
-                className={`p-2 -ml-2 rounded-md text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white transition-all group ${showHistorySidebar ? "hidden sm:block" : "block"}`}
+                className={`p-2 -ml-2 rounded-md text-text-primary dark:text-text-secondary hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white transition-all group ${showHistorySidebar ? "hidden sm:block" : "block"}`}
               >
                 {isRtl ? (
                   <PanelLeftOpen className="w-[18px] h-[18px] -scale-x-100 group-hover:scale-x-[-1.05] transition-transform" />
@@ -1234,13 +1160,13 @@ export default function AICoach({
               </button>
 
               <div className="flex items-center gap-3">
-                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200 tracking-tight">
+                <h2 className="text-sm font-semibold text-text-primary tracking-tight">
                   {t.coachTitle}
                 </h2>
-                <div className="h-3.5 w-px bg-slate-100 dark:bg-slate-800"></div>
+                <div className="h-3.5 w-px bg-bg-secondary"></div>
                 <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.4)] animate-pulse"></div>
-                  <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-medium text-accent-green uppercase tracking-wider">
                     {lang === "ar" ? "متصل" : "Online"}
                   </span>
                 </div>
@@ -1252,14 +1178,14 @@ export default function AICoach({
                 onClick={() => setShowReportPreview(true)}
                 disabled={messages.length <= 1}
                 title={lang === "ar" ? "تصدير كملف PDF" : "Export PDF"}
-                className="text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 p-2 rounded-md hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800/80 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed group"
+                className="text-text-primary dark:text-text-secondary hover:text-slate-900 dark:hover:text-slate-200 p-2 rounded-md hover:bg-bg-secondary dark:hover:bg-slate-800/80 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed group"
               >
                 <Download className="w-[18px] h-[18px] group-hover:-translate-y-0.5 transition-transform" />
               </button>
               <button
                 onClick={createNewChat}
                 title={lang === "ar" ? "محادثة جديدة" : "New Chat"}
-                className="text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 p-2 rounded-md hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800/80 transition-all cursor-pointer group"
+                className="text-text-primary dark:text-text-secondary hover:text-slate-900 dark:hover:text-slate-200 p-2 rounded-md hover:bg-bg-secondary dark:hover:bg-slate-800/80 transition-all cursor-pointer group"
               >
                 <MessageSquarePlus className="w-[18px] h-[18px] group-hover:scale-105 transition-transform" />
               </button>
@@ -1273,7 +1199,7 @@ export default function AICoach({
                   setSelectionMode(false);
                   setSelectedMessages([]);
                 }}
-                className="p-1.5 -ml-1 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 rounded-md hover:bg-slate-800/50 transition-colors"
+                className="p-1.5 -ml-1 text-text-primary dark:text-text-secondary hover:text-slate-900 dark:hover:text-slate-200 rounded-md hover:bg-slate-800/50 transition-colors"
               >
                 <X className="w-4.5 h-4.5" />
               </button>
@@ -1285,7 +1211,7 @@ export default function AICoach({
               <button
                 onClick={copySelectedMessages}
                 disabled={selectedMessages.length === 0}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-bg-secondary hover:bg-bg-secondary text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
                 <Copy className="w-3.5 h-3.5" />
                 {isRtl ? "نسخ الكل" : "Copy"}
@@ -1318,7 +1244,7 @@ export default function AICoach({
                     onClick={() => toggleMessageSelection(msg.id)}
                     className={`mt-2 shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${isSelected ? "bg-indigo-500 border-indigo-500" : "border-slate-600 bg-transparent"}`}
                   >
-                    {isSelected && <Check className="w-3 h-3 text-slate-900 dark:text-white" />}
+                    {isSelected && <Check className="w-3 h-3 text-text-primary" />}
                   </button>
                 )}
 
@@ -1329,7 +1255,7 @@ export default function AICoach({
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
                       isUser
-                        ? "bg-white dark:bg-slate-900 border-none text-indigo-600 dark:text-indigo-400"
+                        ? "bg-surface-primary border-none text-indigo-600 dark:text-indigo-400"
                         : "bg-indigo-950/30 border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
                     }`}
                   >
@@ -1349,10 +1275,10 @@ export default function AICoach({
                   {/* Text Bubble */}
                   <div className="space-y-1 min-w-0 flex-1">
                     <div
-                      className={`p-3.5 rounded-2xl text-[12.5px] shadow-sm leading-relaxed break-words select-text selection:bg-indigo-500/30 selection:text-slate-900 dark:text-white ${
+                      className={`p-3.5 rounded-2xl text-[12.5px] shadow-sm leading-relaxed break-words select-text selection:bg-indigo-500/30 selection:text-text-primary ${
                         isUser
                           ? "bg-indigo-600 text-white rounded-tr-none border border-indigo-500 shadow-md shadow-indigo-500/10"
-                          : "bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-tl-none markdown-container"
+                          : "bg-surface-primary text-text-primary border border-border-primary rounded-tl-none markdown-container"
                       }`}
                     >
                       {isUser ? (
@@ -1384,11 +1310,11 @@ export default function AICoach({
                       )}
                     </div>
                     <div
-                      className={`flex items-center gap-2 text-[8.5px] text-slate-700 dark:text-slate-400 block ${isUser ? "justify-end" : "justify-start"}`}
+                      className={`flex items-center gap-2 text-[8.5px] text-text-primary dark:text-text-secondary block ${isUser ? "justify-end" : "justify-start"}`}
                     >
                       <span>{msg.timestamp}</span>
                       {copiedMessageId === msg.id && (
-                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                        <span className="text-accent-green flex items-center gap-0.5">
                           <Check className="w-3 h-3" />{" "}
                           {isRtl ? "تم النسخ" : "Copied"}
                         </span>
@@ -1423,14 +1349,14 @@ export default function AICoach({
                         setSelectionMode(true);
                         toggleMessageSelection(msg.id);
                       }}
-                      className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-400 hover:text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-md hover:bg-bg-secondary text-text-primary dark:text-text-secondary hover:text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
                       title={isRtl ? "تحديد" : "Select"}
                     >
                       <CheckSquare className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => copyMessage(msg)}
-                      className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-400 hover:text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-md hover:bg-bg-secondary text-text-primary dark:text-text-secondary hover:text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
                       title={isRtl ? "نسخ" : "Copy"}
                     >
                       <Copy className="w-3.5 h-3.5" />
@@ -1438,7 +1364,7 @@ export default function AICoach({
                     {msg.id !== "greet" && (
                       <button
                         onClick={() => setMessageToDelete(msg.id)}
-                        className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-400 hover:text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-md hover:bg-bg-secondary text-text-primary dark:text-text-secondary hover:text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
                         title={isRtl ? "حذف" : "Delete"}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1456,12 +1382,12 @@ export default function AICoach({
               <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border bg-indigo-950/30 border-indigo-500/20 text-indigo-600 dark:text-indigo-400">
                 <Bot className="w-4.5 h-4.5 animate-spin" />
               </div>
-              <div className="p-3.5 rounded-2xl text-xs bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-tl-none text-indigo-600 dark:text-indigo-400 font-medium">
+              <div className="p-3.5 rounded-2xl text-xs bg-surface-primary/50 border border-border-primary rounded-tl-none text-indigo-600 dark:text-indigo-400 font-medium">
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                   <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                   <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"></span>
-                  <span className="text-[11px] text-slate-700 dark:text-slate-400 pl-1">
+                  <span className="text-[11px] text-text-primary dark:text-text-secondary pl-1">
                     {t.coachTyping}
                   </span>
                 </div>
@@ -1471,42 +1397,21 @@ export default function AICoach({
           <div ref={scrollRef} />
         </div>
 
-        {/* Preset Suggested chips & Input zone */}
+        {/* Input zone */}
         <div className="p-3.5 border-t border-slate-850 bg-slate-950/80 shrink-0 space-y-3.5">
-          {/* Suggestion prompt chips (only show if chat contains few records) */}
-          {messages.length < 5 && (
-            <div className="space-y-2.5">
-              <span className="text-[9px] text-slate-700 dark:text-slate-400 font-mono tracking-wider uppercase block">
-                {isRtl ? "أسئلة مقترحة سريعة:" : "Quick Suggested Questions:"}
-              </span>
-              <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
-                {presets.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSend(preset)}
-                    disabled={loading}
-                    className="text-[10px] md:text-[11px] whitespace-nowrap px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900/40 hover:bg-slate-900 active:scale-95 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/20 transition-all cursor-pointer shrink-0 text-start font-medium"
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Attachments Preview */}
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-2">
               {attachments.map((file, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 dark:bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[10px] text-slate-700 dark:text-slate-300"
+                  className="flex items-center gap-2 bg-bg-secondary dark:bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[10px] text-text-primary"
                 >
                   <Paperclip className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
                   <span className="truncate max-w-[120px]">{file.name}</span>
                   <button
                     onClick={() => removeAttachment(idx)}
-                    className="text-slate-700 dark:text-slate-400 hover:text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
+                    className="text-text-primary dark:text-text-secondary hover:text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1525,7 +1430,7 @@ export default function AICoach({
           >
             {isAudioRecording && (
               <div
-                className={`flex items-center justify-between bg-white dark:bg-slate-900 border border-red-500/50 rounded-xl h-11 px-4 animate-pulse relative overflow-hidden`}
+                className={`flex items-center justify-between bg-surface-primary border border-red-500/50 rounded-xl h-11 px-4 animate-pulse relative overflow-hidden`}
               >
                 <div className="absolute inset-0 bg-red-500/5"></div>
                 <div className="flex items-center gap-3 relative z-10">
@@ -1567,7 +1472,7 @@ export default function AICoach({
             )}
 
             {audioBlob && !isAudioRecording && (
-              <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 dark:bg-slate-800/80 p-3 rounded-xl border border-slate-300 dark:border-slate-700">
+              <div className="flex items-center gap-3 bg-bg-secondary dark:bg-slate-800/80 p-3 rounded-xl border border-slate-300 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={togglePlayPreview}
@@ -1580,14 +1485,14 @@ export default function AICoach({
                   )}
                 </button>
 
-                <div className="flex-1 h-1.5 bg-white dark:bg-slate-900 rounded-full overflow-hidden">
+                <div className="flex-1 h-1.5 bg-surface-primary rounded-full overflow-hidden">
                   <div
                     className={`h-full bg-indigo-500 rounded-full transition-all duration-1000 ${isPlayingPreview ? "w-full" : "w-0"}`}
                     style={{ transitionTimingFunction: "linear" }}
                   ></div>
                 </div>
 
-                <span className="text-xs text-slate-700 dark:text-slate-400 font-mono shrink-0">
+                <span className="text-xs text-text-primary dark:text-text-secondary font-mono shrink-0">
                   {formatTime(recordingTime)}
                 </span>
 
@@ -1598,7 +1503,7 @@ export default function AICoach({
                       deleteRecording();
                       startRecording();
                     }}
-                    className="p-1.5 text-slate-700 dark:text-slate-400 hover:text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700"
+                    className="p-1.5 text-text-primary dark:text-text-secondary hover:text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer rounded-lg hover:bg-bg-secondary"
                     title={lang === "ar" ? "إعادة التسجيل" : "Re-record"}
                   >
                     <RefreshCcw className="w-4 h-4" />
@@ -1606,7 +1511,7 @@ export default function AICoach({
                   <button
                     type="button"
                     onClick={deleteRecording}
-                    className="p-1.5 text-slate-700 dark:text-slate-400 hover:text-rose-600 dark:text-rose-400 transition-colors cursor-pointer rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700"
+                    className="p-1.5 text-text-primary dark:text-text-secondary hover:text-rose-600 dark:text-rose-400 transition-colors cursor-pointer rounded-lg hover:bg-bg-secondary"
                     title={lang === "ar" ? "حذف" : "Delete"}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1628,7 +1533,7 @@ export default function AICoach({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:text-indigo-600 dark:text-indigo-400 hover:border-indigo-500/40 transition-colors cursor-pointer"
+                  className="w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-xl bg-surface-primary border border-border-primary text-text-primary dark:text-text-secondary hover:text-indigo-600 dark:text-indigo-400 hover:border-indigo-500/40 transition-colors cursor-pointer"
                 >
                   <Paperclip className="w-4.5 h-4.5" />
                 </button>
@@ -1641,20 +1546,16 @@ export default function AICoach({
                   placeholder={
                     hasReachedLimit
                       ? isRtl ? "لقد وصلت للحد المتاح في باقتك." : "Plan limit reached."
-                      : isListening
-                      ? isRtl
-                        ? "جاري الاستماع للتحويل النصي..."
-                        : "Listening format..."
                       : t.askAnythingPlaceholder
                   }
-                  className={`flex-1 h-11 px-4 text-xs rounded-xl bg-white dark:bg-slate-950 border ${hasReachedLimit ? 'border-rose-500/50 text-rose-500 placeholder-rose-500/50' : 'text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:outline-none transition-all'} ${isListening && !hasReachedLimit ? "border-indigo-500/50 bg-indigo-500/5" : "border-slate-200 dark:border-slate-800 focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/25"}`}
+                  className={`flex-1 h-11 px-4 text-xs rounded-xl bg-white dark:bg-slate-950 border ${hasReachedLimit ? 'border-rose-500/50 text-rose-500 placeholder-rose-500/50' : 'text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:outline-none transition-all'} border-border-primary focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/25`}
                 />
 
                 <button
                   type="button"
                   onClick={startRecording}
                   disabled={!!audioBlob || hasReachedLimit}
-                  className="w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:text-indigo-600 dark:text-indigo-400 hover:border-indigo-500/40 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-xl border bg-surface-primary border-border-primary text-text-primary dark:text-text-secondary hover:text-indigo-600 dark:text-indigo-400 hover:border-indigo-500/40 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Mic className="w-4.5 h-4.5" />
                 </button>
@@ -1679,7 +1580,7 @@ export default function AICoach({
 
         {messageToDelete && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-surface-primary border border-border-primary rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
               <div
                 className={`p-4 border-b border-slate-300 dark:border-slate-800/80 flex items-start gap-4 ${isRtl ? "flex-row-reverse text-right" : ""}`}
               >
@@ -1690,7 +1591,7 @@ export default function AICoach({
                   <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">
                     {isRtl ? "حذف الرسالة" : "Delete Message"}
                   </h3>
-                  <p className="text-xs text-slate-700 dark:text-slate-400 mt-1 leading-relaxed">
+                  <p className="text-xs text-text-primary dark:text-text-secondary mt-1 leading-relaxed">
                     {isRtl
                       ? "هل أنت متأكد من حذف هذه الرسالة؟ لا يمكن التراجع عن هذا الإجراء."
                       : "Are you sure you want to delete this message? This cannot be undone."}
@@ -1698,17 +1599,17 @@ export default function AICoach({
                 </div>
               </div>
               <div
-                className={`p-4 bg-white dark:bg-slate-900 flex items-center gap-3 ${isRtl ? "flex-row" : "flex-row-reverse"}`}
+                className={`p-4 bg-surface-primary flex items-center gap-3 ${isRtl ? "flex-row" : "flex-row-reverse"}`}
               >
                 <button
                   onClick={() => deleteMessage(messageToDelete)}
-                  className="flex-1 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-slate-900 dark:text-white font-semibold text-xs transition-colors"
+                  className="flex-1 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-text-primary font-semibold text-xs transition-colors"
                 >
                   {isRtl ? "تأكيد الحذف" : "Delete"}
                 </button>
                 <button
                   onClick={() => setMessageToDelete(null)}
-                  className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-colors"
+                  className="flex-1 py-2 rounded-xl bg-bg-secondary hover:bg-bg-secondary text-text-primary font-semibold text-xs transition-colors"
                 >
                   {isRtl ? "إلغاء" : "Cancel"}
                 </button>
@@ -1719,7 +1620,7 @@ export default function AICoach({
 
         {showBulkDeleteConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-surface-primary border border-border-primary rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
               <div
                 className={`p-4 border-b border-slate-300 dark:border-slate-800/80 flex items-start gap-4 ${isRtl ? "flex-row-reverse text-right" : ""}`}
               >
@@ -1730,7 +1631,7 @@ export default function AICoach({
                   <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">
                     {isRtl ? "حذف جماعي للرسائل" : "Bulk Delete Messages"}
                   </h3>
-                  <p className="text-xs text-slate-700 dark:text-slate-400 mt-1 leading-relaxed">
+                  <p className="text-xs text-text-primary dark:text-text-secondary mt-1 leading-relaxed">
                     {isRtl
                       ? `هل أنت متأكد من حذف ${selectedMessages.length} رسالة محددة؟ لا يمكن التراجع عن هذا الإجراء.`
                       : `Are you sure you want to delete ${selectedMessages.length} selected messages? This cannot be undone.`}
@@ -1738,20 +1639,20 @@ export default function AICoach({
                 </div>
               </div>
               <div
-                className={`p-4 bg-white dark:bg-slate-900 flex items-center gap-3 ${isRtl ? "flex-row" : "flex-row-reverse"}`}
+                className={`p-4 bg-surface-primary flex items-center gap-3 ${isRtl ? "flex-row" : "flex-row-reverse"}`}
               >
                 <button
                   onClick={() => {
                     bulkDeleteMessages();
                     setShowBulkDeleteConfirm(false);
                   }}
-                  className="flex-1 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-slate-900 dark:text-white font-semibold text-xs transition-colors"
+                  className="flex-1 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-text-primary font-semibold text-xs transition-colors"
                 >
                   {isRtl ? "تأكيد الحذف" : "Delete All"}
                 </button>
                 <button
                   onClick={() => setShowBulkDeleteConfirm(false)}
-                  className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-colors"
+                  className="flex-1 py-2 rounded-xl bg-bg-secondary hover:bg-bg-secondary text-text-primary font-semibold text-xs transition-colors"
                 >
                   {isRtl ? "إلغاء" : "Cancel"}
                 </button>
@@ -1762,7 +1663,7 @@ export default function AICoach({
 
         {showClearAllConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-surface-primary border border-border-primary rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
               <div
                 className={`p-4 border-b border-slate-300 dark:border-slate-800/80 flex items-start gap-4 ${isRtl ? "flex-row-reverse text-right" : ""}`}
               >
@@ -1773,7 +1674,7 @@ export default function AICoach({
                   <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">
                     {isRtl ? "مسح جميع المحادثات" : "Delete All History"}
                   </h3>
-                  <p className="text-xs text-slate-700 dark:text-slate-400 mt-1 leading-relaxed">
+                  <p className="text-xs text-text-primary dark:text-text-secondary mt-1 leading-relaxed">
                     {isRtl
                       ? "هل أنت متأكد من حذف جميع محادثاتك السابقة بالكامل؟ يتم مسح السجلات نهائياً ولا يمكن التراجع عن هذا."
                       : "Are you sure you want to completely delete all chat history? This will permanently remove all conversations and messages."}
@@ -1781,17 +1682,17 @@ export default function AICoach({
                 </div>
               </div>
               <div
-                className={`p-4 bg-white dark:bg-slate-900 flex items-center gap-3 ${isRtl ? "flex-row" : "flex-row-reverse"}`}
+                className={`p-4 bg-surface-primary flex items-center gap-3 ${isRtl ? "flex-row" : "flex-row-reverse"}`}
               >
                 <button
                   onClick={executeDeleteAllConversations}
-                  className="flex-1 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-slate-900 dark:text-white font-semibold text-xs transition-colors"
+                  className="flex-1 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-text-primary font-semibold text-xs transition-colors"
                 >
                   {isRtl ? "نعم، احذف الكل" : "Delete Everything"}
                 </button>
                 <button
                   onClick={() => setShowClearAllConfirm(false)}
-                  className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-colors"
+                  className="flex-1 py-2 rounded-xl bg-bg-secondary hover:bg-bg-secondary text-text-primary font-semibold text-xs transition-colors"
                 >
                   {isRtl ? "إلغاء" : "Cancel"}
                 </button>
@@ -1802,7 +1703,7 @@ export default function AICoach({
 
         {conversationToDelete && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-surface-primary border border-border-primary rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
               <div
                 className={`p-4 border-b border-slate-300 dark:border-slate-800/80 flex items-start gap-4 ${isRtl ? "flex-row-reverse text-right" : ""}`}
               >
@@ -1813,7 +1714,7 @@ export default function AICoach({
                   <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">
                     {isRtl ? "حذف المحادثة" : "Delete Chat History"}
                   </h3>
-                  <p className="text-xs text-slate-700 dark:text-slate-400 mt-1 leading-relaxed">
+                  <p className="text-xs text-text-primary dark:text-text-secondary mt-1 leading-relaxed">
                     {isRtl
                       ? "هل أنت متأكد من حذف هذه المحادثة وجميع الرسائل بداخلها؟"
                       : "Are you sure you want to delete this conversation and all its messages?"}
@@ -1821,17 +1722,17 @@ export default function AICoach({
                 </div>
               </div>
               <div
-                className={`p-4 bg-white dark:bg-slate-900 flex items-center gap-3 ${isRtl ? "flex-row" : "flex-row-reverse"}`}
+                className={`p-4 bg-surface-primary flex items-center gap-3 ${isRtl ? "flex-row" : "flex-row-reverse"}`}
               >
                 <button
                   onClick={() => deleteConversation(conversationToDelete)}
-                  className="flex-1 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-slate-900 dark:text-white font-semibold text-xs transition-colors"
+                  className="flex-1 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-text-primary font-semibold text-xs transition-colors"
                 >
                   {isRtl ? "حذف المحادثة" : "Delete Chat"}
                 </button>
                 <button
                   onClick={() => setConversationToDelete(null)}
-                  className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-colors"
+                  className="flex-1 py-2 rounded-xl bg-bg-secondary hover:bg-bg-secondary text-text-primary font-semibold text-xs transition-colors"
                 >
                   {isRtl ? "إلغاء" : "Cancel"}
                 </button>

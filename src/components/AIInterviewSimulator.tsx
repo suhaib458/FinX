@@ -25,8 +25,6 @@ export default function AIInterviewSimulator({ lang }: Props) {
   
   // Interview state
   const [questions, setQuestions] = useState<{ question: string; answer?: string; feedback?: string }[]>([]);
-  const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
-  const [currentAnswer, setCurrentAnswer] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
   
@@ -79,19 +77,6 @@ export default function AIInterviewSimulator({ lang }: Props) {
     setIsGenerating(false);
   };
 
-  const handleNextQuestion = () => {
-    const updatedQs = [...questions];
-    updatedQs[currentQuestionIdx].answer = currentAnswer;
-    setQuestions(updatedQs);
-    setCurrentAnswer("");
-
-    if (currentQuestionIdx < questions.length - 1) {
-      setCurrentQuestionIdx(prev => prev + 1);
-    } else {
-      finishInterview(updatedQs);
-    }
-  };
-
   const finishInterview = async (completedQs: typeof questions) => {
     setIsScoring(true);
     setMode("result");
@@ -128,7 +113,7 @@ export default function AIInterviewSimulator({ lang }: Props) {
 
   if (loadingProfile) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8 bg-slate-50 dark:bg-[#020617]">
+      <div className="flex-1 flex items-center justify-center p-8 bg-[#F7F8FA] dark:bg-transparent">
          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     );
@@ -136,7 +121,7 @@ export default function AIInterviewSimulator({ lang }: Props) {
 
   if (mode === "setup") {
     return (
-      <div className={`flex-1 overflow-y-auto bg-slate-50 dark:bg-[#020617] p-4 lg:p-8 ${isRtl ? "text-right" : "text-left"}`}>
+      <div className={`flex-1 overflow-y-auto bg-[#F7F8FA] dark:bg-transparent p-4 lg:p-8 ${isRtl ? "text-right" : "text-left"}`}>
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex justify-between items-center bg-indigo-600 text-white rounded-3xl p-8 shadow-sm">
             <div>
@@ -163,29 +148,29 @@ export default function AIInterviewSimulator({ lang }: Props) {
             </div>
           )}
 
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5">
+          <div className="bg-surface-primary rounded-3xl p-6 shadow-sm border border-border-primary space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{isRtl ? "المسمى الوظيفي المستهدف" : "Target Job Role"}</label>
-              <input type="text" value={jobRole} onChange={(e) => setJobRole(e.target.value)} placeholder={isRtl ? "مثال: مبرمج الواجهات الأمامية" : "e.g., Frontend Developer"} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label className="block text-sm font-medium text-text-primary mb-1">{isRtl ? "المسمى الوظيفي المستهدف" : "Target Job Role"}</label>
+              <input type="text" value={jobRole} onChange={(e) => setJobRole(e.target.value)} placeholder={isRtl ? "مثال: مبرمج الواجهات الأمامية" : "e.g., Frontend Developer"} className="w-full bg-bg-secondary border border-border-primary rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{isRtl ? "مجال العمل" : "Career Field"}</label>
-              <input type="text" value={careerField} onChange={(e) => setCareerField(e.target.value)} placeholder={isRtl ? "مثال: تقنية المعلومات" : "e.g., Information Technology"} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label className="block text-sm font-medium text-text-primary mb-1">{isRtl ? "مجال العمل" : "Career Field"}</label>
+              <input type="text" value={careerField} onChange={(e) => setCareerField(e.target.value)} placeholder={isRtl ? "مثال: تقنية المعلومات" : "e.g., Information Technology"} className="w-full bg-bg-secondary border border-border-primary rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{isRtl ? "مستوى الصعوبة" : "Difficulty"}</label>
-                <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <label className="block text-sm font-medium text-text-primary mb-1">{isRtl ? "مستوى الصعوبة" : "Difficulty"}</label>
+                <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="w-full bg-bg-secondary border border-border-primary rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
                   <option value="easy">{isRtl ? "سهل (مبتدئ)" : "Easy (Junior)"}</option>
                   <option value="medium">{isRtl ? "متوسط (خبرة)" : "Medium (Mid-level)"}</option>
                   <option value="hard">{isRtl ? "صعب (متقدم)" : "Hard (Senior/Lead)"}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{isRtl ? "عدد الأسئلة" : "Number of Questions"}</label>
-                <select value={numQuestions} onChange={(e) => setNumQuestions(parseInt(e.target.value))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <label className="block text-sm font-medium text-text-primary mb-1">{isRtl ? "عدد الأسئلة" : "Number of Questions"}</label>
+                <select value={numQuestions} onChange={(e) => setNumQuestions(parseInt(e.target.value))} className="w-full bg-bg-secondary border border-border-primary rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500">
                   <option value={3}>3</option>
                   <option value={5}>5</option>
                   <option value={7}>7</option>
@@ -198,7 +183,7 @@ export default function AIInterviewSimulator({ lang }: Props) {
               disabled={!jobRole || isGenerating}
               className={`w-full py-4 mt-6 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
                 !jobRole || isGenerating 
-                  ? "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed" 
+                  ? "bg-border-primary text-text-secondary cursor-not-allowed" 
                   : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30"
               }`}
             >
@@ -216,48 +201,60 @@ export default function AIInterviewSimulator({ lang }: Props) {
   }
 
   if (mode === "interview") {
-    const q = questions[currentQuestionIdx];
     return (
-      <div className={`flex-1 flex flex-col bg-slate-50 dark:bg-[#020617] p-4 lg:p-8 ${isRtl ? "text-right" : "text-left"}`}>
-        <div className="max-w-3xl w-full mx-auto flex-1 flex flex-col">
-          <div className="flex items-center justify-between mb-8">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              {isRtl ? `سؤال ${currentQuestionIdx + 1} من ${questions.length}` : `Question ${currentQuestionIdx + 1} of ${questions.length}`}
+      <div className={`flex-1 overflow-y-auto bg-[#F7F8FA] dark:bg-transparent p-4 lg:p-8 ${isRtl ? "text-right" : "text-left"}`}>
+        <div className="max-w-4xl w-full mx-auto flex flex-col space-y-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {isRtl ? "المقابلة الشخصية" : "Interview Session"}
+            </h2>
+            <span className="text-sm font-medium text-text-secondary bg-surface-primary px-3 py-1 rounded-lg border border-border-primary">
+              {isRtl ? `${questions.length} أسئلة` : `${questions.length} Questions`}
             </span>
-            <div className="h-2 w-32 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${((currentQuestionIdx) / questions.length) * 100}%` }} />
-            </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-sm border border-slate-200 dark:border-slate-800 flex-1 flex flex-col">
-            <div className="flex items-start gap-4 mb-8">
-              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <BrainCircuit className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 leading-relaxed">
-                  {q.question}
-                </h2>
-              </div>
-            </div>
+          <div className="space-y-6">
+            {questions.map((q, idx) => (
+              <div key={idx} className="bg-surface-primary rounded-3xl p-6 shadow-sm border border-border-primary flex flex-col">
+                <div className="flex items-start gap-4 mb-5">
+                  <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                      {idx + 1}
+                    </span>
+                  </div>
+                  <div className="pt-1.5">
+                    <h3 className="text-sm font-bold text-text-secondary mb-1">
+                      {isRtl ? `السؤال ${idx + 1}` : `Question ${idx + 1}`}
+                    </h3>
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-relaxed">
+                      {q.question}
+                    </h2>
+                  </div>
+                </div>
 
-            <textarea 
-              value={currentAnswer}
-              onChange={(e) => setCurrentAnswer(e.target.value)}
-              placeholder={isRtl ? "اكتب إجابتك هنا بوضوح وتفصيل..." : "Type your answer here clearly and in detail..."}
-              className="flex-1 w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-slate-800 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+                <textarea 
+                  value={q.answer || ""}
+                  onChange={(e) => {
+                    const updatedQs = [...questions];
+                    updatedQs[idx].answer = e.target.value;
+                    setQuestions(updatedQs);
+                  }}
+                  placeholder={isRtl ? "اكتب إجابتك هنا بوضوح وتفصيل..." : "Type your answer here clearly and in detail..."}
+                  className="w-full min-h-[120px] bg-bg-secondary/50 border border-border-primary rounded-2xl p-4 text-text-primary resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                />
+              </div>
+            ))}
+          </div>
 
-            <div className="mt-6 flex justify-end">
-              <button 
-                onClick={handleNextQuestion}
-                disabled={currentAnswer.trim().length < 5}
-                className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold rounded-xl flex items-center gap-2 transition-all"
-              >
-                {currentQuestionIdx < questions.length - 1 ? (isRtl ? "السؤال التالي" : "Next Question") : (isRtl ? "إنهاء المقابلة" : "Finish Interview")}
-                {isRtl ? <ArrowRight className="w-4 h-4 rotate-180" /> : <ArrowRight className="w-4 h-4" />}
-              </button>
-            </div>
+          <div className="flex justify-end pt-4 pb-8">
+            <button 
+              onClick={() => finishInterview(questions)}
+              disabled={questions.some(q => !(q.answer || "").trim())}
+              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg"
+            >
+              {isRtl ? "إنهاء المقابلة" : "Finish Interview"}
+              <CheckCircle className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </div>
@@ -267,13 +264,13 @@ export default function AIInterviewSimulator({ lang }: Props) {
   if (mode === "result") {
     if (isScoring) {
       return (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-[#020617] space-y-6">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F7F8FA] dark:bg-transparent space-y-6">
           <div className="relative w-24 h-24">
-            <div className="absolute inset-0 border-4 border-slate-200 dark:border-slate-800 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-border-primary rounded-full"></div>
             <div className="absolute inset-0 border-4 border-indigo-500 rounded-full border-t-transparent animate-spin"></div>
             <div className="absolute inset-0 flex items-center justify-center"><BarChart3 className="w-8 h-8 text-indigo-500 animate-pulse" /></div>
           </div>
-          <p className="text-lg font-medium text-slate-600 dark:text-slate-300">
+          <p className="text-lg font-medium text-text-secondary">
             {isRtl ? "جاري تقييم أدائك في المقابلة..." : "Evaluating your interview performance..."}
           </p>
         </div>
@@ -281,10 +278,10 @@ export default function AIInterviewSimulator({ lang }: Props) {
     }
 
     return (
-      <div className={`flex-1 overflow-y-auto bg-slate-50 dark:bg-[#020617] p-4 lg:p-8 ${isRtl ? "text-right" : "text-left"}`}>
+      <div className={`flex-1 overflow-y-auto bg-[#F7F8FA] dark:bg-transparent p-4 lg:p-8 ${isRtl ? "text-right" : "text-left"}`}>
         <div className="max-w-4xl mx-auto space-y-8">
           {/* Header Score Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center gap-8">
+          <div className="bg-surface-primary rounded-3xl p-8 shadow-sm border border-border-primary flex flex-col md:flex-row items-center gap-8">
             <div className="relative">
               <svg className="w-36 h-36 transform -rotate-90">
                 <circle cx="72" cy="72" r="64" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100 dark:text-slate-800" />
@@ -292,7 +289,7 @@ export default function AIInterviewSimulator({ lang }: Props) {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-3xl font-bold text-slate-800 dark:text-slate-100">{result.overallScore || 0}%</span>
-                <span className="text-xs text-slate-500 uppercase">{isRtl ? "النتيجة" : "SCORE"}</span>
+                <span className="text-xs text-text-secondary uppercase">{isRtl ? "النتيجة" : "SCORE"}</span>
               </div>
             </div>
             <div className="flex-1 space-y-4 w-full">
@@ -300,17 +297,17 @@ export default function AIInterviewSimulator({ lang }: Props) {
                 {isRtl ? "اكتملت المقابلة!" : "Interview Completed!"}
               </h2>
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
-                  <p className="text-xs text-slate-500 mb-1">{isRtl ? "التواصل" : "Communication"}</p>
+                <div className="bg-bg-secondary/50 rounded-xl p-4 border border-border-primary">
+                  <p className="text-xs text-text-secondary mb-1">{isRtl ? "التواصل" : "Communication"}</p>
                   <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{result.communicationScore || 0}%</p>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
-                  <p className="text-xs text-slate-500 mb-1">{isRtl ? "التقنية" : "Technical"}</p>
+                <div className="bg-bg-secondary/50 rounded-xl p-4 border border-border-primary">
+                  <p className="text-xs text-text-secondary mb-1">{isRtl ? "التقنية" : "Technical"}</p>
                   <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{result.technicalScore || 0}%</p>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
-                  <p className="text-xs text-slate-500 mb-1">{isRtl ? "الثقة" : "Confidence"}</p>
-                  <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{result.confidenceScore || 0}%</p>
+                <div className="bg-bg-secondary/50 rounded-xl p-4 border border-border-primary">
+                  <p className="text-xs text-text-secondary mb-1">{isRtl ? "الثقة" : "Confidence"}</p>
+                  <p className="text-lg font-bold text-accent-orange">{result.confidenceScore || 0}%</p>
                 </div>
               </div>
             </div>
@@ -353,15 +350,15 @@ export default function AIInterviewSimulator({ lang }: Props) {
               {isRtl ? "مراجعة الإجابات" : "Answers Review"}
             </h3>
             {result.questions?.map((q, i) => (
-              <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
-                <p className="font-bold text-slate-800 dark:text-white mb-4">س: {q.question}</p>
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 mb-4">
-                  <p className="text-sm font-medium text-slate-500 mb-1">{isRtl ? "إجابتك:" : "Your Answer:"}</p>
-                  <p className="text-slate-700 dark:text-slate-300 text-sm">{q.answer}</p>
+              <div key={i} className="bg-surface-primary rounded-2xl p-6 border border-border-primary">
+                <p className="font-bold text-text-primary mb-4">س: {q.question}</p>
+                <div className="bg-bg-secondary/50 rounded-xl p-4 mb-4">
+                  <p className="text-sm font-medium text-text-secondary mb-1">{isRtl ? "إجابتك:" : "Your Answer:"}</p>
+                  <p className="text-text-primary text-sm">{q.answer}</p>
                 </div>
                 <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-4">
                   <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">{isRtl ? "ملاحظات الخبير:" : "Expert Feedback:"}</p>
-                  <p className="text-slate-700 dark:text-slate-300 text-sm">{q.feedback}</p>
+                  <p className="text-text-primary text-sm">{q.feedback}</p>
                 </div>
               </div>
             ))}
@@ -377,7 +374,7 @@ export default function AIInterviewSimulator({ lang }: Props) {
 
   if (mode === "history") {
     return (
-      <div className={`flex-1 overflow-y-auto bg-slate-50 dark:bg-[#020617] p-4 lg:p-8 ${isRtl ? "text-right" : "text-left"}`}>
+      <div className={`flex-1 overflow-y-auto bg-[#F7F8FA] dark:bg-transparent p-4 lg:p-8 ${isRtl ? "text-right" : "text-left"}`}>
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
@@ -389,7 +386,7 @@ export default function AIInterviewSimulator({ lang }: Props) {
           </div>
           
           {historyData.map((session, idx) => (
-            <div key={idx} className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center gap-6 shadow-sm">
+            <div key={idx} className="bg-surface-primary rounded-3xl p-6 border border-border-primary flex flex-col md:flex-row items-center gap-6 shadow-sm">
               <div className="relative">
                 <svg className="w-24 h-24 transform -rotate-90">
                   <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100 dark:text-slate-800" />
@@ -401,7 +398,7 @@ export default function AIInterviewSimulator({ lang }: Props) {
               </div>
               <div className="flex-1 space-y-2">
                 <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">{session.jobRole}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-text-secondary">
                   {session.careerField} • {session.difficulty} level
                 </p>
                 <div className="flex gap-2 mt-2 flex-wrap">

@@ -46,8 +46,18 @@ export async function getUserSubscription(uid: string): Promise<UserSubscription
   return { plan: "free" };
 }
 
-export async function upgradePlanDemo(uid: string, plan: SubscriptionPlan) {
-  // Demo function to simulate upgrading plan over UI
-  const docRef = doc(db, "users", uid);
-  await setDoc(docRef, { subscription: { plan, status: "active", currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000 } }, { merge: true });
+export async function upgradePlan(uid: string, plan: SubscriptionPlan) {
+  if (!auth.currentUser) throw new Error("Must be logged in to upgrade");
+  const token = await auth.currentUser.getIdToken();
+  const res = await fetch("/api/upgrade", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ plan })
+  });
+  if (!res.ok) {
+    throw new Error("Failed to upgrade plan");
+  }
 }

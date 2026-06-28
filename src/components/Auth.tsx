@@ -13,20 +13,31 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
-  fetchSignInMethodsForEmail,
+  fetchSignInMethodsForEmail
 } from "firebase/auth";
-import { auth, googleSignIn } from "../lib/firebase";
+import { auth, googleSignIn, db } from "../lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
+import { createNotification } from "../lib/notifications";
 import { translations } from "../translations";
 import { useWebAuthn, isRunningInIframe } from "../hooks/useWebAuthn";
 
 interface AuthProps {
   lang: "ar" | "en";
+  user?: any;
+  onVerified?: () => void;
 }
 
-export default function Auth({ lang }: AuthProps) {
-  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
+export default function Auth({ lang, user, onVerified }: AuthProps) {
+  const [mode, setMode] = useState<"login" | "signup" | "forgot" | "phone_verify" | "google_phone_verify">(user ? "google_phone_verify" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phoneNumberStr, setPhoneNumberStr] = useState("");
+  const [countryCode, setCountryCode] = useState("+962");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [mockCodeSent, setMockCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(60);
+  const [pendingGoogleUser, setPendingGoogleUser] = useState<any>(null);
+  
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -35,25 +46,33 @@ export default function Auth({ lang }: AuthProps) {
 
   const isRtl = lang === "ar";
 
-  // Try to prefill email if biometric was used previously
+  const COUNTRIES = [
+    { code: "+962", nameEn: "Jordan", nameAr: "الأردن", flag: "🇯🇴" },
+    { code: "+966", nameEn: "Saudi Arabia", nameAr: "السعودية", flag: "🇸🇦" },
+    { code: "+971", nameEn: "UAE", nameAr: "الإمارات", flag: "🇦🇪" },
+    { code: "+20", nameEn: "Egypt", nameAr: "مصر", flag: "🇪🇬" },
+    { code: "+974", nameEn: "Qatar", nameAr: "قطر", flag: "🇶🇦" },
+    { code: "+965", nameEn: "Kuwait", nameAr: "الكويت", flag: "🇰🇼" },
+    { code: "+973", nameEn: "Bahrain", nameAr: "البحرين", flag: "🇧🇭" },
+    { code: "+968", nameEn: "Oman", nameAr: "عُمان", flag: "🇴🇲" },
+  ];
+
+  useEffect(() => {
+    let timer: any;
+    if (mockCodeSent && countdown > 0) {
+      timer = setInterval(() => setCountdown(c => c - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [mockCodeSent, countdown]);
+
+
+
+  // Clean up any old FinX_SecureCredentials if they exist
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("FinX_SecureCredentials");
-      if (stored) {
-        const decoded = JSON.parse(atob(stored));
-        if (decoded.email) setEmail(decoded.email);
-      }
+      localStorage.removeItem("FinX_SecureCredentials");
     } catch (e) {}
   }, []);
-
-  const saveCredentials = (e: string, p: string) => {
-    try {
-      localStorage.setItem(
-        "FinX_SecureCredentials",
-        btoa(JSON.stringify({ email: e, password: p })),
-      );
-    } catch (err) {}
-  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,11 +85,21 @@ export default function Auth({ lang }: AuthProps) {
       );
 
       if (mode === "signup") {
-        await createUserWithEmailAndPassword(auth, sanitizedEmail, password);
-        saveCredentials(sanitizedEmail, password);
+        if (!phoneNumberStr || phoneNumberStr.length < 7) {
+          throw new Error(isRtl ? "رقم الهاتف غير صالح." : "Invalid phone number.");
+        }
+        setMode("phone_verify");
+        setMockCodeSent(true);
+        setCountdown(60);
       } else {
-        await signInWithEmailAndPassword(auth, sanitizedEmail, password);
-        saveCredentials(sanitizedEmail, password);
+        const userCred = await signInWithEmailAndPassword(auth, sanitizedEmail, password);
+        
+        await createNotification(userCred.user.uid, {
+          title: isRtl ? "تسجيل دخول جديد" : "New Login",
+          message: isRtl ? "تم تسجيل الدخول إلى حسابك بنجاح." : "Successfully logged into your account.",
+          category: "account",
+          type: "system"
+        });
       }
     } catch (err: any) {
       console.error(
@@ -150,16 +179,6 @@ export default function Auth({ lang }: AuthProps) {
     }
 
     try {
-      const stored = localStorage.getItem("FinX_SecureCredentials");
-      if (!stored) {
-        setError(
-          isRtl
-            ? "لم يتم العثور على البصمة مرتبطة بحساب. يرجى تسجيل الدخول يدوياً وتفعيلها من الإعدادات."
-            : "No biometric profile linked. Log in manually first and enable it in Settings.",
-        );
-        return;
-      }
-
       const result = await loginWithPasskey();
       if (!result.success) {
         setError(
@@ -171,17 +190,10 @@ export default function Auth({ lang }: AuthProps) {
       }
 
       setLoading(true);
-      const decoded = JSON.parse(atob(stored));
-      const sanitizedEmail = decoded.email?.trim();
-
-      console.log(
-        `[Auth Diagnostics] Executing Passkey Login for email: '${sanitizedEmail}'`,
-      );
-
-      await signInWithEmailAndPassword(auth, sanitizedEmail, decoded.password);
+      // loginWithPasskey now sets the auth state automatically
     } catch (err: any) {
       console.error(
-        "[Auth Diagnostics] Biometric Login Firebase Authentication Error:",
+        "[Auth Diagnostics] Biometric Login Error:",
         err,
       );
       setError(err.message || "Authentication failed");
@@ -236,25 +248,153 @@ export default function Auth({ lang }: AuthProps) {
   };
 
   const renderForm = () => {
+    if (mode === "phone_verify" || (mode === "google_phone_verify" && mockCodeSent)) {
+      return (
+        <div className="space-y-4 text-center">
+          <h2 className="text-xl font-bold text-text-primary">
+            {isRtl ? "تأكيد رقم الهاتف" : "Verify Phone Number"}
+          </h2>
+          <p className="text-sm text-text-secondary">
+            {isRtl ? `تم إرسال رمز مكون من 6 أرقام إلى رقم هاتفك.` : `A 6-digit code has been sent to your phone number.`}
+          </p>
+          <div className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 p-2 rounded-lg">
+            {isRtl ? "بيئة تجريبية: أدخل 123456 كرمز التحقق." : "Test Mode: Enter 123456 as the verification code."}
+          </div>
+          <input
+            type="text"
+            value={verificationCode}
+            onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="000000"
+            className="w-full h-14 bg-surface-primary border border-slate-300 dark:border-slate-700 rounded-xl px-4 text-center text-2xl tracking-[0.5em] font-mono text-text-primary focus:outline-none focus:border-indigo-500 transition-colors"
+          />
+          <button
+            onClick={async () => {
+              setError("");
+              setLoading(true);
+              try {
+                // Simulate network
+                await new Promise(r => setTimeout(r, 800));
+                if (verificationCode !== "123456") {
+                  throw new Error(isRtl ? "رمز التحقق غير صحيح." : "Invalid verification code.");
+                }
+                
+                const fullNumber = `${countryCode}${phoneNumberStr.startsWith('0') ? phoneNumberStr.substring(1) : phoneNumberStr}`;
+                
+                if (mode === "phone_verify") {
+                   const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+                   const docRef = doc(db, `users/${userCred.user.uid}/settings/smsPreferences`);
+                   await setDoc(docRef, { phoneNumber: fullNumber, verified: true, verifiedAt: new Date().toISOString(), analyzeSms: true }, { merge: true });
+                } else if (mode === "google_phone_verify") {
+                   if (user) {
+                     const docRef = doc(db, `users/${user.uid}/settings/smsPreferences`);
+                     await setDoc(docRef, { phoneNumber: fullNumber, verified: true, verifiedAt: new Date().toISOString(), analyzeSms: true }, { merge: true });
+                     if (onVerified) onVerified();
+                   }
+                }
+              } catch(err: any) {
+                setError(err.message || "Verification failed");
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading || verificationCode.length < 6}
+            className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-text-primary font-bold text-sm transition-all disabled:opacity-50"
+          >
+            {loading ? (isRtl ? "جاري التحقق..." : "Verifying...") : (isRtl ? "تأكيد الرمز" : "Verify Code")}
+          </button>
+          
+          <div className="flex flex-col gap-2 mt-4">
+             <button
+               disabled={countdown > 0}
+               onClick={() => { setCountdown(60); }}
+               className="text-xs text-text-secondary hover:text-indigo-500 transition-colors"
+             >
+               {countdown > 0 ? (isRtl ? `إعادة إرسال الرمز (${countdown}ث)` : `Resend code (${countdown}s)`) : (isRtl ? "إعادة إرسال الرمز" : "Resend code")}
+             </button>
+             <button
+               onClick={() => {
+                 if (mode === "google_phone_verify") {
+                    auth.signOut();
+                    setMode("login");
+                 } else {
+                   setMode(mode === "phone_verify" ? "signup" : "login");
+                   setVerificationCode("");
+                 }
+               }}
+               className="text-xs text-text-secondary hover:text-indigo-500 transition-colors"
+             >
+               {mode === "google_phone_verify" ? (isRtl ? "إلغاء وتسجيل الخروج" : "Cancel and Sign Out") : (isRtl ? "تغيير رقم الهاتف" : "Change phone number")}
+             </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (mode === "google_phone_verify" && !mockCodeSent) {
+      // User signed in with Google, but hasn't entered a phone number yet
+      return (
+        <form onSubmit={(e) => { e.preventDefault(); setError(""); setMockCodeSent(true); setCountdown(60); }} className="space-y-4">
+           <div>
+             <label className={`block text-xs text-text-primary dark:text-text-secondary mb-1 ${isRtl ? "text-right" : "text-left"}`}>
+               {isRtl ? "يرجى إضافة رقم هاتفك للمتابعة" : "Please add your phone number to continue"}
+             </label>
+             <div className="flex items-center gap-2 w-full">
+                <select 
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className={`h-12 w-[100px] bg-bg-secondary border border-slate-300 dark:border-slate-700 rounded-xl px-2 text-text-primary text-xs focus:outline-none focus:border-indigo-500 ${isRtl ? 'pl-4' : 'pr-4'}`}
+                >
+                  {COUNTRIES.map(c => (
+                    <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  value={phoneNumberStr}
+                  onChange={(e) => setPhoneNumberStr(e.target.value.replace(/\D/g, ''))}
+                  placeholder={isRtl ? "123 456 789" : "Phone number..."}
+                  required
+                  className="flex-1 min-w-0 w-full h-12 bg-bg-secondary border border-slate-300 dark:border-slate-700 rounded-xl px-4 text-text-primary tracking-wider focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+              </div>
+           </div>
+           <button
+            type="submit"
+            disabled={!phoneNumberStr || phoneNumberStr.length < 7}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-text-primary font-bold py-3 px-4 rounded-xl transition-colors mt-2"
+          >
+            {isRtl ? "متابعة" : "Continue"}
+          </button>
+          <button
+             type="button"
+             onClick={() => { auth.signOut(); setMode("login"); }}
+             className="w-full text-xs text-text-primary dark:text-text-secondary mt-4 underline decoration-slate-600 underline-offset-4"
+          >
+             {isRtl ? "إلغاء وتسجيل الخروج" : "Cancel and Sign Out"}
+          </button>
+        </form>
+      );
+    }
+
     if (mode === "forgot") {
       return (
         <form onSubmit={handleResetPassword} className="space-y-4">
           <div>
             <label
-              className={`block text-xs text-slate-700 dark:text-slate-400 mb-1 ${isRtl ? "text-right" : "text-left"}`}
+              className={`block text-xs text-text-primary dark:text-text-secondary mb-1 ${isRtl ? "text-right" : "text-left"}`}
             >
               {isRtl ? "البريد الإلكتروني" : "Email Address"}
             </label>
             <div className="relative">
               <Mail
-                className={`absolute top-3 w-5 h-5 text-slate-700 dark:text-slate-400 ${isRtl ? "right-3" : "left-3"}`}
+                className={`absolute top-3 w-5 h-5 text-text-primary dark:text-text-secondary ${isRtl ? "right-3" : "left-3"}`}
               />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className={`w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl py-3 text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors ${isRtl ? "pr-10 text-right" : "pl-10 text-left"}`}
+                className={`w-full bg-bg-secondary border border-slate-300 dark:border-slate-700 rounded-xl py-3 text-text-primary placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors ${isRtl ? "pr-10 text-right" : "pl-10 text-left"}`}
                 placeholder={isRtl ? "name@example.com" : "name@example.com"}
               />
             </div>
@@ -262,7 +402,7 @@ export default function Auth({ lang }: AuthProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-slate-900 dark:text-white font-bold py-3 px-4 rounded-xl transition-colors mt-2"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-text-primary font-bold py-3 px-4 rounded-xl transition-colors mt-2"
           >
             {loading
               ? isRtl
@@ -275,7 +415,7 @@ export default function Auth({ lang }: AuthProps) {
           <button
             type="button"
             onClick={() => setMode("login")}
-            className="w-full text-xs text-slate-700 dark:text-slate-400 mt-4 underline decoration-slate-600 underline-offset-4"
+            className="w-full text-xs text-text-primary dark:text-text-secondary mt-4 underline decoration-slate-600 underline-offset-4"
           >
             {isRtl ? "العودة إلى تسجيل الدخول" : "Back to login"}
           </button>
@@ -287,34 +427,61 @@ export default function Auth({ lang }: AuthProps) {
       <form onSubmit={handleEmailAuth} className="space-y-4">
         <div>
           <label
-            className={`block text-xs text-slate-700 dark:text-slate-400 mb-1 ${isRtl ? "text-right" : "text-left"}`}
+            className={`block text-xs text-text-primary dark:text-text-secondary mb-1 ${isRtl ? "text-right" : "text-left"}`}
           >
             {isRtl ? "البريد الإلكتروني" : "Email Address"}
           </label>
           <div className="relative">
             <Mail
-              className={`absolute top-3 w-5 h-5 text-slate-700 dark:text-slate-400 ${isRtl ? "right-3" : "left-3"}`}
+              className={`absolute top-3 w-5 h-5 text-text-primary dark:text-text-secondary ${isRtl ? "right-3" : "left-3"}`}
             />
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className={`w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl py-3 text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors ${isRtl ? "pr-10 text-right" : "pl-10 text-left"}`}
+              className={`w-full bg-bg-secondary border border-slate-300 dark:border-slate-700 rounded-xl py-3 text-text-primary placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors ${isRtl ? "pr-10 text-right" : "pl-10 text-left"}`}
               placeholder={isRtl ? "name@example.com" : "name@example.com"}
             />
           </div>
         </div>
 
+        {mode === "signup" && (
+          <div>
+            <label className={`block text-xs text-text-primary dark:text-text-secondary mb-1 ${isRtl ? "text-right" : "text-left"}`}>
+              {isRtl ? "رقم الهاتف" : "Phone Number"}
+            </label>
+            <div className="flex items-center gap-2 w-full">
+              <select 
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+                className={`h-12 w-[100px] bg-bg-secondary border border-slate-300 dark:border-slate-700 rounded-xl px-2 text-text-primary text-xs focus:outline-none focus:border-indigo-500 ${isRtl ? 'pl-4' : 'pr-4'}`}
+              >
+                {COUNTRIES.map(c => (
+                  <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                value={phoneNumberStr}
+                onChange={(e) => setPhoneNumberStr(e.target.value.replace(/\D/g, ''))}
+                placeholder={isRtl ? "123 456 789" : "Phone number..."}
+                required
+                className={`flex-1 min-w-0 w-full h-12 bg-bg-secondary border border-slate-300 dark:border-slate-700 rounded-xl px-4 text-text-primary tracking-wider focus:outline-none focus:border-indigo-500 transition-colors ${isRtl ? "text-right" : "text-left"}`}
+              />
+            </div>
+          </div>
+        )}
+
         <div>
           <label
-            className={`block text-xs text-slate-700 dark:text-slate-400 mb-1 ${isRtl ? "text-right" : "text-left"}`}
+            className={`block text-xs text-text-primary dark:text-text-secondary mb-1 ${isRtl ? "text-right" : "text-left"}`}
           >
             {isRtl ? "كلمة المرور" : "Password"}
           </label>
           <div className="relative">
             <Lock
-              className={`absolute top-3 w-5 h-5 text-slate-700 dark:text-slate-400 ${isRtl ? "right-3" : "left-3"}`}
+              className={`absolute top-3 w-5 h-5 text-text-primary dark:text-text-secondary ${isRtl ? "right-3" : "left-3"}`}
             />
             <input
               type="password"
@@ -322,7 +489,7 @@ export default function Auth({ lang }: AuthProps) {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className={`w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl py-3 text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors ${isRtl ? "pr-10 text-right" : "pl-10 text-left"}`}
+              className={`w-full bg-bg-secondary border border-slate-300 dark:border-slate-700 rounded-xl py-3 text-text-primary placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors ${isRtl ? "pr-10 text-right" : "pl-10 text-left"}`}
               placeholder="••••••••"
             />
           </div>
@@ -343,7 +510,7 @@ export default function Auth({ lang }: AuthProps) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-slate-900 dark:text-white font-bold py-3 px-4 rounded-xl transition-colors mt-2"
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-text-primary font-bold py-3 px-4 rounded-xl transition-colors mt-2"
         >
           {loading
             ? isRtl
@@ -365,7 +532,7 @@ export default function Auth({ lang }: AuthProps) {
               <button
                 type="button"
                 onClick={() => window.open(window.location.href, "_blank")}
-                className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 text-xs"
+                className="w-full bg-bg-secondary hover:bg-bg-secondary text-text-primary font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 text-xs"
               >
                 <Fingerprint className="w-4 h-4" />
                 {isRtl
@@ -378,7 +545,7 @@ export default function Auth({ lang }: AuthProps) {
               type="button"
               onClick={handleBiometricLogin}
               disabled={loading}
-              className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 mt-3"
+              className="w-full bg-bg-secondary hover:bg-bg-secondary text-text-primary font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 mt-3"
             >
               <Fingerprint className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               {isRtl ? "الدخول بالبصمة / الوجه" : "Passkey / Biometric Login"}
@@ -390,7 +557,7 @@ export default function Auth({ lang }: AuthProps) {
             <div className="w-full border-t border-slate-300 dark:border-slate-700"></div>
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="px-2 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400">
+            <span className="px-2 bg-surface-primary text-text-primary dark:text-text-secondary">
               {isRtl ? "أو المتابعة باستخدام" : "Or continue with"}
             </span>
           </div>
@@ -400,7 +567,7 @@ export default function Auth({ lang }: AuthProps) {
           type="button"
           onClick={handleGoogleAuth}
           disabled={loading}
-          className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700"
+          className="w-full bg-bg-secondary hover:bg-bg-secondary text-text-primary font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -423,7 +590,7 @@ export default function Auth({ lang }: AuthProps) {
           Google
         </button>
 
-        <p className="text-center text-xs text-slate-700 dark:text-slate-400 mt-6">
+        <p className="text-center text-xs text-text-primary dark:text-text-secondary mt-6">
           {mode === "login"
             ? isRtl
               ? "ليس لديك حساب؟"
@@ -451,17 +618,17 @@ export default function Auth({ lang }: AuthProps) {
 
   return (
     <div
-      className={`flex-1 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-slate-50 dark:from-[#020617] via-white dark:via-slate-900 to-slate-100 dark:to-slate-950 ${isRtl ? "font-arabic" : "font-sans"}`}
+      className={`flex-1 flex flex-col items-center justify-center p-6 bg-[#F7F8FA] dark:bg-transparent ${isRtl ? "font-arabic" : "font-sans"}`}
     >
       <div className="w-full max-w-[320px]">
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-700 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/20">
-            <span className="text-slate-900 dark:text-white font-black text-xl font-sans">FX</span>
+            <span className="text-text-primary font-black text-xl font-sans">FX</span>
           </div>
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300">
             {isRtl ? "مرحباً بك في فنيكس" : "Welcome to FinX"}
           </h1>
-          <p className="text-slate-700 dark:text-slate-400 mt-2 text-sm">
+          <p className="text-text-primary dark:text-text-secondary mt-2 text-sm">
             {mode === "login"
               ? isRtl
                 ? "سجل دخولك للمتابعة"

@@ -41,6 +41,70 @@ const PROJECTS_COLLECTION = 'finx_projects';
 const REQUESTS_COLLECTION = 'finx_investment_requests';
 
 // Get all public projects (for investors)
+
+const MOCK_PROJECTS: Project[] = [
+  {
+    id: "mock1",
+    name: "TechVision Solutions",
+    founderId: "founder1",
+    founderName: "Ahmad Sami",
+    category: "قطاع التكنولوجيا",
+    stage: "Prototype",
+    fundingNeeded: 50000,
+    moneyReceived: 15000,
+    expectedReturn: "10-15%",
+    problem: "Lack of efficient technical solutions for small businesses.",
+    solution: "An integrated cloud-based SaaS platform.",
+    audience: "SMEs in MENA region",
+    marketSize: "$500M",
+    riskLevel: "Medium",
+    timeline: "12 months",
+    location: "عمان",
+    summary: "Cloud SaaS for MENA SMEs.",
+    status: "active"
+  },
+  {
+    id: "mock2",
+    name: "AgriGrow Innovation",
+    founderId: "founder2",
+    founderName: "Sara Ali",
+    category: "القطاع الزراعي",
+    stage: "Idea",
+    fundingNeeded: 25000,
+    moneyReceived: 5000,
+    expectedReturn: "20%",
+    problem: "Water scarcity in farming.",
+    solution: "Smart IoT irrigation systems.",
+    audience: "Local farmers",
+    marketSize: "$100M",
+    riskLevel: "High",
+    timeline: "6 months",
+    location: "إربد",
+    summary: "Smart irrigation for water saving.",
+    status: "active"
+  },
+  {
+    id: "mock3",
+    name: "FinTech Hub",
+    founderId: "founder3",
+    founderName: "Omar Hassan",
+    category: "تقنية مالية",
+    stage: "In progress",
+    fundingNeeded: 100000,
+    moneyReceived: 60000,
+    expectedReturn: "15%",
+    problem: "Complicated local payment gateways.",
+    solution: "Seamless unified payment API.",
+    audience: "E-commerce startups",
+    marketSize: "$1B",
+    riskLevel: "Low",
+    timeline: "18 months",
+    location: "عمان",
+    summary: "Unified payment API for E-commerce.",
+    status: "active"
+  }
+];
+
 export const getProjects = async (): Promise<Project[]> => {
   try {
     const q = query(
@@ -48,10 +112,12 @@ export const getProjects = async (): Promise<Project[]> => {
       where('status', '==', 'active')
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+    const results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+    if (results.length === 0) return MOCK_PROJECTS;
+    return results;
   } catch (err) {
     console.error("Error fetching projects:", err);
-    return [];
+    return MOCK_PROJECTS;
   }
 };
 
@@ -96,6 +162,18 @@ export const updateProject = async (projectId: string, updates: Partial<Project>
   }
 };
 
+// Delete a project
+export const deleteProject = async (projectId: string): Promise<boolean> => {
+  try {
+    const docRef = doc(db, PROJECTS_COLLECTION, projectId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (err) {
+    console.error("Error deleting project:", err);
+    return false;
+  }
+};
+
 // Send an investment request
 export const createInvestmentRequest = async (requestData: Omit<InvestmentRequest, 'id' | 'createdAt'>): Promise<boolean> => {
   try {
@@ -126,6 +204,17 @@ export const getOwnerRequests = async (founderId: string): Promise<InvestmentReq
 };
 
 // Get investment requests sent by an investor
+export const updateInvestmentRequest = async (requestId: string, status: 'accepted' | 'declined'): Promise<boolean> => {
+  try {
+    const docRef = doc(db, REQUESTS_COLLECTION, requestId);
+    await updateDoc(docRef, { status });
+    return true;
+  } catch (error) {
+    console.error("Error updating investment request: ", error);
+    return false;
+  }
+};
+
 export const getInvestorRequests = async (investorId: string): Promise<InvestmentRequest[]> => {
   try {
     const q = query(
@@ -137,5 +226,30 @@ export const getInvestorRequests = async (investorId: string): Promise<Investmen
   } catch (err) {
     console.error("Error fetching investor requests:", err);
     return [];
+  }
+};
+
+export const getOrCreateConversation = async (projectId: string, founderId: string, investorId: string) => {
+  try {
+    const q = query(
+      collection(db, 'finx_conversations'),
+      where('projectId', '==', projectId),
+      where('founderId', '==', founderId),
+      where('investorId', '==', investorId)
+    );
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      return snapshot.docs[0].id;
+    }
+    const docRef = await addDoc(collection(db, 'finx_conversations'), {
+      projectId,
+      founderId,
+      investorId,
+      createdAt: serverTimestamp()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("Error with conversation:", error);
+    return null;
   }
 };

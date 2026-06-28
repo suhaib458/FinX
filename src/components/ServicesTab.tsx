@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   Building2, 
   CreditCard, 
@@ -25,7 +26,7 @@ import {
 
 interface ServicesTabProps {
   lang: "ar" | "en";
-  onNavigate?: (tab: "home" | "coach" | "simulation" | "healthScore" | "upload" | "settings" | "notes" | "nashmiPro" | "rewards" | "services" | "calendar" | "chat" | "projects") => void;
+  onNavigate?: (tab: "home" | "coach" | "simulation" | "healthScore" | "upload" | "settings" | "notes" | "nashmiPro" | "rewards" | "services" | "calendar" | "chat" | "projects" | "debtPlanner") => void;
   onSendToCoach?: (prompt: string) => void;
 }
 
@@ -53,8 +54,12 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleAction = (serviceTitle: string, targetMode: "tab" | "coach", targetData: string) => {
-    if (targetMode === "coach" && onSendToCoach) {
+  const navigate = useNavigate();
+
+  const handleAction = (serviceTitle: string, targetMode: "tab" | "coach" | "route", targetData: string) => {
+    if (targetMode === "route") {
+      navigate(targetData);
+    } else if (targetMode === "coach" && onSendToCoach) {
       onSendToCoach(targetData);
     } else if (targetMode === "tab" && onNavigate) {
       onNavigate(targetData as any);
@@ -63,10 +68,10 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
 
   const financialServices = [
     { 
-      title: lang === "ar" ? "المشاريع والاستثمار" : "Projects & Investments", 
-      desc: lang === "ar" ? "عرض مشاريعك واستثمر في أفكار واعدة." : "Discover projects and present your bold ideas.",
-      icon: <Building2 className="w-5 h-5 text-indigo-500" />, 
-      action: () => handleAction("Projects & Investments", "tab", "projects") 
+      title: lang === "ar" ? "النظام العائلي" : "Family System", 
+      desc: lang === "ar" ? "نظام إدارة الموارد المالية لعائلتك." : "Manage your family's finances together.",
+      icon: <Building2 className="w-5 h-5 text-purple-500" />, 
+      action: () => handleAction("Family System", "route", "/family") 
     },
     { 
       title: lang === "ar" ? "تحليل كشف الحساب" : "Statement Analysis", 
@@ -78,13 +83,7 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
       title: lang === "ar" ? "تحليل البطاقات الائتمانية" : "Card Analysis", 
       desc: lang === "ar" ? "اكتشف أنماط الإنفاق والمصاريف المخفية." : "Discover spending patterns and hidden fees.",
       icon: <CreditCard className="w-5 h-5 text-blue-500" />, 
-      action: () => handleAction("Credit Card Analysis", "tab", "upload") 
-    },
-    { 
-      title: lang === "ar" ? "إدارة الميزانية" : "Budget Management", 
-      desc: lang === "ar" ? "تتبع دقيق للميزانية." : "Smart allocation for your budget.",
-      icon: <Wallet className="w-5 h-5 text-emerald-500" />, 
-      action: () => handleAction("Expense Tracking", "tab", "notes") 
+      action: () => handleAction("Credit Card Analysis", "tab", "scan") 
     },
     { 
       title: lang === "ar" ? "الصحة المالية" : "Health Score", 
@@ -93,16 +92,10 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
       action: () => handleAction("Financial Health Score", "tab", "healthScore") 
     },
     { 
-      title: lang === "ar" ? "محاكاة الأهداف" : "Goal Simulation", 
-      desc: lang === "ar" ? "جرب سيناريوهات لاادخارك واستثماراتك." : "Simulate scenarios for your future savings.",
-      icon: <Target className="w-5 h-5 text-rose-500" />, 
-      action: () => handleAction("Financial Goals", "tab", "simulation") 
-    },
-    { 
-      title: lang === "ar" ? "خطة سداد الديون" : "Debt Repayment", 
-      desc: lang === "ar" ? "استراتيجيات للتحرر من الديون والالتزامات." : "Strategies to become debt-free faster.",
+      title: lang === "ar" ? "خطة سداد الديون الذكية" : "Smart Debt Repayment", 
+      desc: lang === "ar" ? "تخلص من الديون بذكاء وابدأ بناء ثروتك." : "Eliminate debt intelligently and build wealth.",
       icon: <TrendingUp className="w-5 h-5 text-cyan-500" />, 
-      action: () => handleAction("Debt Analysis", "coach", lang === "ar" ? "الرجاء مساعدتي في بناء خطة لسداد ديوني والالتزامات المالية." : "Please help me build a debt repayment plan.") 
+      action: () => handleAction("Debt Analysis", "tab", "debtPlanner") 
     },
   ];
 
@@ -154,19 +147,10 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
     },
   ];
 
-  const workspaceServices = [
-    {
-      title: lang === "ar" ? "تقويم جوجل" : "Google Calendar",
-      desc: lang === "ar" ? "تصفح مواعيدك وأحداثك القادمة." : "Browse your upcoming events.",
-      icon: <CalendarDays className="w-5 h-5 text-indigo-500" />,
-      action: () => handleAction("calendar", "tab", "calendar")
-    },
-    {
-      title: lang === "ar" ? "جوجل شات" : "Google Chat",
-      desc: lang === "ar" ? "مزامنة مساحات العمل الخاصة بك." : "Sync workspaces and conversations.",
-      icon: <MessagesSquare className="w-5 h-5 text-emerald-500" />,
-      action: () => handleAction("chat", "tab", "chat")
-    }
+  const allCategories = [
+    { title: t.financial, items: financialServices },
+    { title: t.career, items: careerServices },
+    { title: t.ai, items: aiServices },
   ];
 
   const normalizeForSearch = (str: string) => {
@@ -224,13 +208,6 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
     }
   };
 
-  const allCategories = [
-    { title: t.financial, items: financialServices },
-    { title: t.career, items: careerServices },
-    { title: t.ai, items: aiServices },
-    { title: lang === "ar" ? "خدمات جوجل" : "Google Workspace", items: workspaceServices },
-  ];
-
   const normalizedQuery = normalizeForSearch(searchQuery);
 
   const filteredCategories = allCategories.map(cat => {
@@ -259,18 +236,18 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
       <div className="mb-10 sm:mb-12">
         <div className="flex items-center gap-4 mb-6 sm:mb-8 px-2">
           <div className="w-2 h-6 sm:h-8 rounded-full bg-indigo-600 dark:bg-indigo-500"></div>
-          <h3 className={`text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight ${isRtl ? 'font-arabic' : 'font-sans'}`}>
+          <h3 className={`text-xl sm:text-2xl font-extrabold text-text-primary tracking-tight ${isRtl ? 'font-arabic' : 'font-sans'}`}>
             {title}
           </h3>
-          <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 ml-4 rtl:ml-0 rtl:mr-4"></div>
+          <div className="h-px bg-border-primary flex-1 ml-4 rtl:ml-0 rtl:mr-4"></div>
         </div>
         
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-5 lg:gap-6">
           {services.map((service, index) => {
             // Distinctive colors per card
             const palette = [
               { bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-100 dark:border-indigo-500/20', titleHover: 'group-hover:text-indigo-600 dark:group-hover:text-indigo-400', arrowHover: 'group-hover:bg-indigo-600 dark:group-hover:bg-indigo-500' },
-              { bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20', titleHover: 'group-hover:text-emerald-600 dark:group-hover:text-emerald-400', arrowHover: 'group-hover:bg-emerald-600 dark:group-hover:bg-emerald-500' },
+              { bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20', titleHover: 'group-hover:text-emerald-600 dark:group-hover:text-emerald-400', arrowHover: 'group-hover:bg-accent-green dark:group-hover:bg-emerald-500' },
               { bg: 'bg-blue-50 dark:bg-blue-500/10', border: 'border-blue-100 dark:border-blue-500/20', titleHover: 'group-hover:text-blue-600 dark:group-hover:text-blue-400', arrowHover: 'group-hover:bg-blue-600 dark:group-hover:bg-blue-500' },
               { bg: 'bg-rose-50 dark:bg-rose-500/10', border: 'border-rose-100 dark:border-rose-500/20', titleHover: 'group-hover:text-rose-600 dark:group-hover:text-rose-400', arrowHover: 'group-hover:bg-rose-600 dark:group-hover:bg-rose-500' },
             ];
@@ -280,7 +257,7 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
               <div 
                 key={index}
                 onClick={service.action}
-                className="aspect-square relative rounded-[20px] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800/80 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-indigo-500/5 transition-all duration-300 cursor-pointer group flex flex-col items-center justify-center p-3 shadow-sm text-center"
+                className="w-[calc(50%-8px)] sm:w-[calc(33.333%-14px)] lg:w-[calc(33.333%-16px)] aspect-square relative rounded-[20px] bg-surface-primary border border-border-primary/80 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-indigo-500/5 transition-all duration-300 cursor-pointer group flex flex-col items-center justify-center p-3 shadow-sm text-center"
               >
                 {/* Center: Icon */}
                 <div className={`w-12 h-12 sm:w-14 sm:h-14 mb-3 shrink-0 rounded-[14px] flex items-center justify-center border transition-all duration-300 ${color.bg} ${color.border} group-hover:scale-110 group-hover:shadow-md [&>svg]:w-6 [&>svg]:h-6`}>
@@ -288,7 +265,7 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
                 </div>
                 
                 {/* Center: Text */}
-                <h4 className={`text-[14px] sm:text-[15px] font-bold text-slate-900 dark:text-white leading-[1.4] transition-colors w-full px-2 ${color.titleHover} ${isRtl ? 'font-arabic' : 'font-sans'}`}>
+                <h4 className={`text-[14px] sm:text-[15px] font-bold text-text-primary leading-[1.4] transition-colors w-full px-2 ${color.titleHover} ${isRtl ? 'font-arabic' : 'font-sans'}`}>
                   {highlightMatch(service.title, searchQuery)}
                 </h4>
               </div>
@@ -306,24 +283,24 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
         {/* Smart Search Bar Area */}
         <div className="mb-10 relative group max-w-2xl">
           <div className="absolute inset-y-0 left-0 pl-4 rtl:pl-0 rtl:right-0 rtl:pr-4 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+            <Search className="h-5 w-5 text-text-secondary group-focus-within:text-indigo-500 transition-colors" />
           </div>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={isRtl ? "ابحث عن خدمة، أداة، أو استشارة..." : "Search for a service, tool, or consultation..."}
-            className={`w-full bg-white dark:bg-[#0f172a] border-2 border-slate-200 dark:border-slate-800 rounded-2xl py-4
+            className={`w-full bg-surface-primary border-2 border-border-primary rounded-2xl py-4
               ${isRtl ? 'pr-12 pl-12 font-arabic' : 'pl-12 pr-12 font-sans'} 
-              text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm text-base`}
+              text-text-primary placeholder-slate-400 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm text-base`}
           />
           {searchQuery && (
             <button 
               onClick={() => setSearchQuery("")}
-              className="absolute inset-y-0 right-0 pr-4 rtl:pr-0 rtl:left-0 rtl:pl-4 flex items-center cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              className="absolute inset-y-0 right-0 pr-4 rtl:pr-0 rtl:left-0 rtl:pl-4 flex items-center cursor-pointer text-text-secondary hover:text-slate-600 dark:hover:text-slate-300"
               aria-label="Clear search"
             >
-              <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center transition-colors">
+              <div className="w-6 h-6 rounded-full bg-bg-secondary flex items-center justify-center transition-colors">
                 <X className="h-3.5 w-3.5" />
               </div>
             </button>
@@ -340,13 +317,13 @@ export default function ServicesTab({ lang, onNavigate, onSendToCoach }: Service
            </div>
         ) : (
            <div className="text-center py-20 px-4 animate-in fade-in duration-300">
-             <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800/80 rounded-3xl flex items-center justify-center mx-auto mb-5 rotate-3 shadow-sm border border-slate-200/50 dark:border-slate-700/50">
-               <BoxSelect className="w-7 h-7 text-slate-400 dark:text-slate-500" />
+             <div className="w-16 h-16 bg-bg-secondary/80 rounded-3xl flex items-center justify-center mx-auto mb-5 rotate-3 shadow-sm border border-slate-200/50 dark:border-slate-700/50">
+               <BoxSelect className="w-7 h-7 text-text-secondary dark:text-text-secondary" />
              </div>
-             <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+             <h3 className="text-xl font-bold text-text-primary mb-2">
                {isRtl ? "لم يتم العثور على نتائج" : "No results found"}
              </h3>
-             <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto text-sm leading-relaxed">
+             <p className="text-text-secondary max-w-sm mx-auto text-sm leading-relaxed">
                {isRtl 
                  ? `لم نتمكن من العثور على أية خدمات تطابق "${searchQuery}". جرب استخدام كلمات مفتاحية أخرى.` 
                  : `We couldn't find any services matching "${searchQuery}". Try using different keywords.`}

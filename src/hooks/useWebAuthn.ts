@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
+import { auth } from '../lib/firebase';
+import { signInWithCustomToken } from 'firebase/auth';
 
 export interface WebAuthnResult {
   success: boolean;
@@ -17,7 +20,7 @@ export const isRunningInIframe = (): boolean => {
 
 /**
  * Custom hook to safely generate and authenticate a simple passkey using WebAuthn.
- * This directly utilizes Native OS capabilities (TouchID, FaceID, Windows Hello).
+ * This uses a secure server-backed flow.
  */
 export function useWebAuthn() {
   const [isSupported, setIsSupported] = useState(false);
@@ -31,12 +34,6 @@ export function useWebAuthn() {
         .catch(() => setIsSupported(false));
     }
   }, []);
-
-  const generateRandomBuffer = () => {
-    const array = new Uint8Array(32);
-    crypto.getRandomValues(array);
-    return array;
-  };
 
   const parseAuthError = (err: any): WebAuthnResult => {
     console.error("Biometric Auth Error:", err);
@@ -52,7 +49,6 @@ export function useWebAuthn() {
            return { success: false, message: 'Biometric login requires the app to be opened in a new tab (not inside the preview iframe).', code: 'IFRAME_RESTRICTED', errorDetail: err };
         }
       } catch (e) {
-         // Accessing window.top can throw in cross-origin iframes
          return { success: false, message: 'Biometric login requires the app to be opened in a new tab (not inside the preview iframe).', code: 'IFRAME_RESTRICTED', errorDetail: err };
       }
       
@@ -80,42 +76,36 @@ export function useWebAuthn() {
     }
     
     try {
-      const challenge = generateRandomBuffer();
-      const userIdBuffer = new TextEncoder().encode(userId);
+      if (!auth.currentUser) throw new Error("Must be logged in to register passkey");
+      const token = await auth.currentUser.getIdToken();
+      
+      // 1. Get options from server
+      const resp = await fetch("/api/webauthn/generate-registration-options", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!resp.ok) throw new Error("Failed to get registration options");
+      const options = await resp.json();
 
-      const createOptions: PublicKeyCredentialCreationOptions = {
-        challenge,
-        rp: {
-          name: "FinX",
-          id: window.location.hostname
-        },
-        user: {
-          id: userIdBuffer,
-          name: email,
-          displayName: email.split('@')[0]
-        },
-        pubKeyCredParams: [
-          { alg: -7, type: "public-key" }, // ES256
-          { alg: -257, type: "public-key" } // RS256
-        ],
-        authenticatorSelection: {
-          authenticatorAttachment: "platform", // Directs to device biometrics
-          userVerification: "required",
-          residentKey: "required"
-        },
-        timeout: 60000,
-        attestation: "none"
-      };
+      // 2. Pass to authenticator
+      const attResp = await startRegistration(options);
 
-      const credential = await navigator.credentials.create({
-        publicKey: createOptions
+      // 3. Send response back to server
+      const verificationResp = await fetch("/api/webauthn/verify-registration", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(attResp),
       });
 
-      if (credential) {
+      const verificationJSON = await verificationResp.json();
+
+      if (verificationJSON && verificationJSON.success) {
          return { success: true, message: 'Biometric authentication successfully activated.' };
       }
       
-      return { success: false, message: 'Activation failed. Credential not generated.', code: 'CREATION_FAILED' };
+      return { success: false, message: 'Activation failed on server verification.', code: 'CREATION_FAILED' };
     } catch (err: any) {
       return parseAuthError(err);
     }
@@ -127,23 +117,31 @@ export function useWebAuthn() {
     }
 
     try {
-      const challenge = generateRandomBuffer();
+      // 1. Get options from server
+      const resp = await fetch("/api/webauthn/generate-authentication-options");
+      if (!resp.ok) throw new Error("Failed to get authentication options");
+      const options = await resp.json();
 
-      const getOptions: PublicKeyCredentialRequestOptions = {
-        challenge,
-        rpId: window.location.hostname,
-        userVerification: "required",
-        timeout: 60000
-      };
+      // 2. Pass to authenticator
+      const asseResp = await startAuthentication(options);
 
-      const assertion = await navigator.credentials.get({
-        publicKey: getOptions
+      // 3. Send response back to server
+      const verificationResp = await fetch("/api/webauthn/verify-authentication", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(asseResp),
       });
 
-      if (assertion) {
+      const verificationJSON = await verificationResp.json();
+
+      if (verificationJSON && verificationJSON.success && verificationJSON.customToken) {
+        // 4. Log in to Firebase Auth
+        await signInWithCustomToken(auth, verificationJSON.customToken);
         return { success: true };
       }
-      return { success: false, message: 'Authentication failed. No credential returned.', code: 'AUTH_FAILED' };
+      return { success: false, message: 'Authentication failed on server verification.', code: 'AUTH_FAILED' };
     } catch (err: any) {
       return parseAuthError(err);
     }

@@ -20,6 +20,16 @@ export interface SpendingCategory {
   color: string;
 }
 
+export interface ActiveCard {
+  cardholderName: string;
+  cardNumber: string;
+  expiryDate: string;
+  brand: string;
+  bankName: string;
+  cvv?: string;
+  balance?: string;
+}
+
 export interface FinancialAnalysis {
   monthlyIncome: number;
   monthlyExpenses: number;
@@ -33,7 +43,7 @@ export interface FinancialAnalysis {
 
 export interface SimulationScenario {
   id: string;
-  type: "car" | "business" | "marriage" | "investment" | "loan";
+  type: string;
   titleAr: string;
   titleEn: string;
   iconName: string;

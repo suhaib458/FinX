@@ -34,8 +34,8 @@ export default function ProfilePhotoManager({ lang }: { lang: 'ar' | 'en' }) {
     const file = e.target.files?.[0];
     if (!file || !auth.currentUser) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMsg("Maximum file size is 5MB");
+    if (file.size > 25 * 1024 * 1024) {
+      setErrorMsg(isRtl ? "حجم الملف الأقصى هو 25 ميجابايت" : "Maximum file size is 25MB");
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -163,20 +163,20 @@ export default function ProfilePhotoManager({ lang }: { lang: 'ar' | 'en' }) {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col gap-4">
+    <div className="bg-surface-primary border border-border-primary rounded-2xl p-4 flex flex-col gap-4">
       <div className="flex flex-col sm:flex-row items-center gap-4">
         <div className="relative group">
-          <div className="w-20 h-20 rounded-full border-2 border-indigo-500 overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+          <div className="w-20 h-20 rounded-full border-2 border-indigo-500 overflow-hidden bg-bg-secondary flex items-center justify-center shrink-0">
             {photoURL ? (
               <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
             ) : (
-              <Camera className="w-8 h-8 text-slate-700 dark:text-slate-400" />
+              <Camera className="w-8 h-8 text-text-primary dark:text-text-secondary" />
             )}
           </div>
           
           {uploading && (
             <div className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center">
-              <span className="text-slate-900 dark:text-white text-[10px] font-bold">{Math.round(progress)}%</span>
+              <span className="text-text-primary text-[10px] font-bold">{Math.round(progress)}%</span>
               <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full mt-1 overflow-hidden">
                 <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${progress}%` }} />
               </div>
@@ -185,8 +185,8 @@ export default function ProfilePhotoManager({ lang }: { lang: 'ar' | 'en' }) {
         </div>
 
         <div className={`flex flex-col gap-2 ${isRtl ? 'text-right' : 'text-left'} flex-1`}>
-          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">{auth.currentUser?.displayName || "User"}</h3>
-          <p className="text-xs text-slate-700 dark:text-slate-400">{auth.currentUser?.email}</p>
+          <h3 className="text-sm font-bold text-text-primary">{auth.currentUser?.displayName || "User"}</h3>
+          <p className="text-xs text-text-primary dark:text-text-secondary">{auth.currentUser?.email}</p>
           <div className="flex flex-wrap gap-2 mt-1">
             <input 
               type="file" 
@@ -198,7 +198,7 @@ export default function ProfilePhotoManager({ lang }: { lang: 'ar' | 'en' }) {
             <button 
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-slate-900 dark:text-white text-[11px] font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-text-primary text-[11px] font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
             >
               <Upload className="w-3.5 h-3.5" />
               {photoURL ? t.changePhotoBtn : t.uploadPhotoBtn}

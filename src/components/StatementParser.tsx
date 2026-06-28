@@ -59,17 +59,7 @@ export default function StatementParser({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Check statement limits 
-    if (auth.currentUser) {
-      getUserSubscription(auth.currentUser.uid).then(sub => {
-        const limits = PLAN_LIMITS[sub.plan];
-        if (limits.statementsPerMonth !== -1 && transactions.length > limits.statementsPerMonth * 3) {
-          setHasReachedLimit(true);
-        } else {
-          setHasReachedLimit(false);
-        }
-      });
-    }
+    // Check statement limits is now handled by backend
   }, [transactions.length]);
 
   // Manual entry forms states
@@ -274,9 +264,17 @@ export default function StatementParser({
         );
 
         try {
+          let token = "";
+          if (auth.currentUser) {
+            token = await auth.currentUser.getIdToken();
+          }
+          
           const response = await fetch("/api/parse-statement", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {})
+            },
             body: JSON.stringify({
               language: lang,
               fileName: uploadedFile.name,
@@ -284,6 +282,11 @@ export default function StatementParser({
               fileMimeType: uploadedFile.type,
             }),
           });
+
+          if (response.status === 403) {
+            setHasReachedLimit(true);
+            throw new Error(isRtl ? "تجاوزت الحد المسموح للاستخدام. يرجى الترقية." : "You have reached your statement upload limit. Please upgrade.");
+          }
 
           if (!response.ok) {
             throw new Error(
@@ -397,7 +400,7 @@ export default function StatementParser({
     >
       {/* Description */}
       <div>
-        <p className="text-[10px] tracking-wider text-slate-700 dark:text-slate-400 uppercase font-mono">
+        <p className="text-[10px] tracking-wider text-text-primary dark:text-text-secondary uppercase font-mono">
           {isRtl ? "تصنيف فوري باستخدام Gemini 3.5" : "AI SECURE OCR PARSER"}
         </p>
         <h2
@@ -405,7 +408,7 @@ export default function StatementParser({
         >
           {t.statementUploadTitle}
         </h2>
-        <p className="text-[11px] text-slate-700 dark:text-slate-400 mt-1">
+        <p className="text-[11px] text-text-primary dark:text-text-secondary mt-1">
           {t.statementUploadDesc}
         </p>
       </div>
@@ -431,7 +434,7 @@ export default function StatementParser({
         <label
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500/50 rounded-2xl p-8 flex flex-col items-center justify-center text-center gap-4 bg-white dark:bg-slate-900/60 hover:bg-slate-900/80 cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-indigo-500/10"
+          className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500/50 rounded-2xl p-8 flex flex-col items-center justify-center text-center gap-4 bg-surface-primary/60 hover:bg-slate-900/80 cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-indigo-500/10"
         >
           <input
             type="file"
@@ -440,7 +443,7 @@ export default function StatementParser({
             className="hidden"
             accept="image/jpeg,image/png,image/jpg,application/pdf"
           />
-          <div className="w-14 h-14 rounded-full bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-110 group-hover:border-indigo-500/30 transition-all duration-300 shadow-inner">
+          <div className="w-14 h-14 rounded-full bg-white dark:bg-slate-950 border-2 border-border-primary text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-110 group-hover:border-indigo-500/30 transition-all duration-300 shadow-inner">
             <Upload className="w-6 h-6 text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-500 dark:text-indigo-300" />
           </div>
           <div className="space-y-1.5">
@@ -454,7 +457,7 @@ export default function StatementParser({
         </label>
 
         {/* Trust indicator */}
-        <div className="flex items-center justify-center gap-1.5 mt-3 text-emerald-600 dark:text-emerald-400/80">
+        <div className="flex items-center justify-center gap-1.5 mt-3 text-accent-green/80">
           <CheckCircle2 className="w-3.5 h-3.5" />
           <span className="text-[9px] font-medium tracking-wide uppercase">
             256-bit AES Bank-Level Encryption
@@ -485,7 +488,7 @@ export default function StatementParser({
       {/* Successful Parse alert banner */}
       {successMsg && !loading && (
         <div className="rounded-xl p-3 bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2.5">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-accent-green shrink-0" />
           <p className="text-[11px] text-emerald-500 dark:text-emerald-300 font-medium leading-relaxed">
             {t.uploadSucc}
           </p>
@@ -493,13 +496,13 @@ export default function StatementParser({
       )}
 
       {/* Manual Insert Transaction Row Form */}
-      <details className="group bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-        <summary className="p-3.5 flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer list-none select-none">
+      <details className="group bg-surface-primary/40 border border-border-primary rounded-xl overflow-hidden">
+        <summary className="p-3.5 flex items-center justify-between text-xs font-bold text-text-primary cursor-pointer list-none select-none">
           <span className="flex items-center gap-2">
             <Plus className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-open:rotate-45 transition-transform animate-pulse" />
             {t.manualEntryTitle}
           </span>
-          <span className="text-[10px] text-slate-700 dark:text-slate-400 group-open:hidden">
+          <span className="text-[10px] text-text-primary dark:text-text-secondary group-open:hidden">
             {isRtl ? "انقر لإدخال سند" : "Click to expand"}
           </span>
         </summary>
@@ -513,14 +516,14 @@ export default function StatementParser({
             <button
               type="button"
               onClick={() => setType("expense")}
-              className={`py-1.5 text-[10px] font-bold rounded-md transition-all cursor-pointer ${type === "expense" ? "bg-rose-500/20 text-rose-500 dark:text-rose-300" : "text-slate-700 dark:text-slate-400"}`}
+              className={`py-1.5 text-[10px] font-bold rounded-md transition-all cursor-pointer ${type === "expense" ? "bg-rose-500/20 text-rose-500 dark:text-rose-300" : "text-text-primary dark:text-text-secondary"}`}
             >
               {isRtl ? "مصروف صرف" : "Expense Debit"}
             </button>
             <button
               type="button"
               onClick={() => setType("income")}
-              className={`py-1.5 text-[10px] font-bold rounded-md transition-all cursor-pointer ${type === "income" ? "bg-emerald-500/20 text-emerald-350" : "text-slate-700 dark:text-slate-400"}`}
+              className={`py-1.5 text-[10px] font-bold rounded-md transition-all cursor-pointer ${type === "income" ? "bg-emerald-500/20 text-emerald-350" : "text-text-primary dark:text-text-secondary"}`}
             >
               {isRtl ? "إيداع راتب" : "Income Credit"}
             </button>
@@ -528,7 +531,7 @@ export default function StatementParser({
 
           <div className="space-y-1">
             <div className="flex justify-between items-center">
-              <label className="text-[10px] text-slate-700 dark:text-slate-400 font-bold block">
+              <label className="text-[10px] text-text-primary dark:text-text-secondary font-bold block">
                 {t.expenseDesc}
               </label>
               <button
@@ -560,13 +563,13 @@ export default function StatementParser({
                   ? "بقالة - مقهى - قسط..."
                   : "Starbucks, Walmart, Loan payment..."
               }
-              className="w-full h-9 px-3 text-xs rounded-lg bg-white dark:bg-slate-950 border border-slate-850 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500/30"
+              className="w-full h-9 px-3 text-xs rounded-lg bg-white dark:bg-slate-950 border border-slate-850 text-text-primary focus:outline-none focus:border-indigo-500/30"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] text-slate-700 dark:text-slate-400 font-bold block">
+              <label className="text-[10px] text-text-primary dark:text-text-secondary font-bold block">
                 {t.expenseAmount}
               </label>
               <input
@@ -575,17 +578,17 @@ export default function StatementParser({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
-                className="w-full h-9 px-3 text-xs rounded-lg bg-white dark:bg-slate-950 border border-slate-850 text-slate-800 dark:text-slate-200 font-mono focus:outline-none focus:border-indigo-500/30"
+                className="w-full h-9 px-3 text-xs rounded-lg bg-white dark:bg-slate-950 border border-slate-850 text-text-primary font-mono focus:outline-none focus:border-indigo-500/30"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] text-slate-700 dark:text-slate-400 font-bold block">
+              <label className="text-[10px] text-text-primary dark:text-text-secondary font-bold block">
                 {t.expenseCategory}
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-9 px-2 text-[11px] rounded-lg bg-white dark:bg-slate-950 border border-slate-850 text-slate-700 dark:text-slate-300 focus:outline-none"
+                className="w-full h-9 px-2 text-[11px] rounded-lg bg-white dark:bg-slate-950 border border-slate-850 text-text-primary focus:outline-none"
               >
                 {categoriesList.map((cat, idx) => (
                   <option key={idx} value={cat}>
@@ -598,7 +601,7 @@ export default function StatementParser({
 
           <button
             type="submit"
-            className="w-full h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-bold text-xs text-slate-900 dark:text-white cursor-pointer active:scale-98 transition-all flex items-center justify-center gap-1.5"
+            className="w-full h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-bold text-xs text-text-primary cursor-pointer active:scale-98 transition-all flex items-center justify-center gap-1.5"
           >
             <Plus className="w-4 h-4" />
             {t.addTxBtn}
@@ -610,8 +613,8 @@ export default function StatementParser({
       {transactions.length > 0 &&
         typeof totalExpenses === "number" &&
         totalExpenses > 0 && (
-          <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 p-4 rounded-xl space-y-3">
-            <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300">
+          <div className="bg-surface-primary/40 border border-border-primary p-4 rounded-xl space-y-3">
+            <h3 className="text-xs font-bold text-text-primary">
               {isRtl ? "تحليل النفقات والمصروفات" : "Expenses Breakdown"}
             </h3>
             <div className="space-y-3">
@@ -620,8 +623,8 @@ export default function StatementParser({
                 return (
                   <div key={idx} className="space-y-1">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-800 dark:text-slate-200">{cat}</span>
-                      <span className="text-slate-700 dark:text-slate-400 font-mono">
+                      <span className="text-text-primary">{cat}</span>
+                      <span className="text-text-primary dark:text-text-secondary font-mono">
                         {amt.toLocaleString()} JOD ({percent}%)
                       </span>
                     </div>
@@ -641,7 +644,7 @@ export default function StatementParser({
       {/* Ledger History details */}
       <div className="space-y-2.5 pb-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300">
+          <h3 className="text-xs font-bold text-text-primary">
             {t.transactionsHistory}
           </h3>
           <div className="flex items-center gap-3">
@@ -655,7 +658,7 @@ export default function StatementParser({
             </button>
             <button
               onClick={() => setShowClearConfirm(true)}
-              className="text-[9px] text-slate-700 dark:text-slate-400 hover:text-rose-600 dark:text-rose-400 font-mono transition-colors"
+              className="text-[9px] text-text-primary dark:text-text-secondary hover:text-rose-600 dark:text-rose-400 font-mono transition-colors"
             >
               {isRtl ? "تصفير السجل" : "Reset Ledger"}
             </button>
@@ -664,9 +667,9 @@ export default function StatementParser({
 
         <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
           {transactions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-950/50">
-              <FileText className="w-8 h-8 text-slate-700 dark:text-slate-400 mb-2" />
-              <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
+            <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed border-border-primary rounded-2xl bg-slate-950/50">
+              <FileText className="w-8 h-8 text-text-primary dark:text-text-secondary mb-2" />
+              <p className="text-xs text-text-primary dark:text-text-secondary font-medium">
                 {isRtl
                   ? "سجل المعاملات فارغ حالياً"
                   : "Ledger is currently empty"}
@@ -678,11 +681,11 @@ export default function StatementParser({
               return (
                 <div
                   key={idx}
-                  className="p-3 rounded-xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 text-xs hover:border-slate-750 transition-colors"
+                  className="p-3 rounded-xl bg-surface-primary/50 border border-border-primary flex items-center justify-between gap-3 text-xs hover:border-slate-750 transition-colors"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${isInc ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"}`}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${isInc ? "bg-emerald-500/10 border-emerald-500/20 text-accent-green" : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"}`}
                     >
                       {isInc ? (
                         <ArrowUpRight className="w-4 h-4" />
@@ -691,10 +694,10 @@ export default function StatementParser({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <h4 className="font-bold text-slate-800 dark:text-slate-200 truncate pr-1">
+                      <h4 className="font-bold text-text-primary truncate pr-1">
                         {tx.desc}
                       </h4>
-                      <p className="text-[9px] text-slate-700 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                      <p className="text-[9px] text-text-primary dark:text-text-secondary flex items-center gap-1 mt-0.5">
                         <Calendar className="w-2.5 h-2.5 shrink-0" />
                         <span className="shrink-0">{tx.date}</span> •
                         <select
@@ -709,7 +712,7 @@ export default function StatementParser({
                             <option
                               key={cIdx}
                               value={cat}
-                              className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                              className="bg-surface-primary text-text-primary"
                             >
                               {cat}
                             </option>
@@ -720,7 +723,7 @@ export default function StatementParser({
                   </div>
 
                   <div
-                    className={`font-mono font-bold text-end shrink-0 ${isInc ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                    className={`font-mono font-bold text-end shrink-0 ${isInc ? "text-accent-green" : "text-rose-600 dark:text-rose-400"}`}
                   >
                     {(isInc ? "+" : "") + tx.amount.toLocaleString()} JOD
                   </div>
@@ -734,17 +737,17 @@ export default function StatementParser({
       {/* Confirmation Modal */}
       {showClearConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
+          <div className="bg-surface-primary border border-border-primary rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0 text-rose-500">
                 <Trash2 className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+              <h3 className="text-sm font-bold text-text-primary">
                 {isRtl ? "تأكيد مسح السجل" : "Confirm Clear Ledger"}
               </h3>
             </div>
 
-            <p className="text-xs text-slate-700 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs text-text-primary dark:text-text-secondary leading-relaxed">
               {isRtl
                 ? "هل أنت متأكد من رغبتك في مسح كافة المعاملات؟ هذا الإجراء لا يمكن التراجع عنه."
                 : "Are you sure you want to clear all transactions? This action cannot be undone."}
@@ -753,7 +756,7 @@ export default function StatementParser({
             <div className="flex gap-3 pt-2 justify-end">
               <button
                 onClick={() => setShowClearConfirm(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-text-primary dark:text-text-secondary hover:text-slate-900 dark:hover:text-slate-200 hover:bg-bg-secondary transition-colors"
               >
                 {isRtl ? "إلغاء" : "Cancel"}
               </button>
@@ -762,7 +765,7 @@ export default function StatementParser({
                   onClearTransactions();
                   setShowClearConfirm(false);
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-slate-900 dark:text-white transition-colors"
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-text-primary transition-colors"
               >
                 {isRtl ? "مسح السجل" : "Clear Transactions"}
               </button>
