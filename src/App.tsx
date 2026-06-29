@@ -33,6 +33,8 @@ import Avatar from "./components/Avatar";
 import { auth, db } from "./lib/firebase";
 import { onAuthStateChanged, User, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { UserRepository } from "./repositories/UserRepository";
+import { ProfileService } from "./services/ProfileService";
 
 import FinancialNotes from "./components/FinancialNotes";
 import ServicesTab from "./components/ServicesTab";
@@ -63,12 +65,11 @@ import {
 
 import { RewardsService, RewardProfile } from "./lib/rewards";
 import { getUserSubscription } from "./lib/subscription";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
-export default function App() {
-  // Authentication State
-  const [user, setUser] = useState<User | null>(null);
-  const [authChecking, setAuthChecking] = useState(true);
-  const [isPhoneVerified, setIsPhoneVerified] = useState(true);
+function AppContent() {
+  // Authentication State from Context
+  const { currentUser: user, authLoading: authChecking, isPhoneVerified, verifyPhone, logout } = useAuth();
 
   // Rewards Engine State
   const [rewardProfile, setRewardProfile] = useState<RewardProfile>({
@@ -131,33 +132,12 @@ export default function App() {
     await RewardsService.awardPoints(user.uid, amount, isPro, reason);
   };
 
-  // Track Firebase Auth State
+  // Track Firebase Auth State (handled by AuthContext now)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      
-      if (currentUser) {
-        try {
-          const prefsDoc = await getDoc(doc(db, "users", currentUser.uid, "settings", "smsPreferences"));
-          const prefsData = prefsDoc.data();
-          if (!prefsData?.verified) {
-             setIsPhoneVerified(false);
-             setAuthChecking(false);
-             return; // Stop initialization until verified
-          }
-          setIsPhoneVerified(true);
-        } catch (e) {
-          console.error("Error checking phone verification:", e);
-        }
-      } else {
-        setActiveTab("home");
-      }
-
-      setAuthChecking(false);
-    });
-    
-    return () => unsubscribe();
-  }, []);
+    if (!user) {
+      setActiveTab("home");
+    }
+  }, [user]);
 
   useEffect(() => {
     let unsubProfile: (() => void) | undefined;
@@ -179,15 +159,14 @@ export default function App() {
              await RewardsService.unlockAchievement(currentUser.uid, "7_day_streak", "7-Day Streak", 50, currentIsPro);
           }
 
-          const [onboardingDoc, activeCardDoc, userDocSnap] = await Promise.all([
-            getDoc(doc(db, "users", currentUser.uid, "settings", "onboarding")),
+          const [onboardingData, activeCardDoc, userDocSnap] = await Promise.all([
+            ProfileService.getOnboardingSettings(currentUser.uid),
             getDoc(doc(db, "users", currentUser.uid, "settings", "activeCard")),
-            getDoc(doc(db, "users", currentUser.uid))
+            UserRepository.getUserDoc(currentUser.uid)
           ]);
 
-          if (onboardingDoc.exists()) {
-             const data = onboardingDoc.data();
-             setUserRole(data.selectedRole || null);
+          if (onboardingData) {
+             setUserRole(onboardingData.selectedRole || null);
           }
 
           if (activeCardDoc.exists()) {
@@ -228,7 +207,7 @@ export default function App() {
 
   const handleLogout = async () => {
     setActiveTab("home");
-    await signOut(auth);
+    await logout();
   };
 
   // Track preferences across language swaps
@@ -507,7 +486,7 @@ export default function App() {
   if (!user || (user && !isPhoneVerified)) {
     return (
       <DeviceShell lang={lang}>
-        <Auth lang={lang} user={user} onVerified={() => setIsPhoneVerified(true)} />
+        <Auth lang={lang} user={user} onVerified={verifyPhone} />
       </DeviceShell>
     );
   }
@@ -664,5 +643,13 @@ export default function App() {
         )}
       </AnimatePresence>
     </DeviceShell>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

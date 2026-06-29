@@ -143,6 +143,13 @@ export default React.memo(function VirtualCard({ activeCard, lang, isRtl, onRemo
     };
   }, [handleHide]);
 
+  // Reset flipped state when reveal session ends
+  useEffect(() => {
+    if (!isRevealed && isFlipped) {
+      setIsFlipped(false);
+    }
+  }, [isRevealed, isFlipped]);
+
   // Handle Privacy Mode pressing
   const handlePressStart = () => {
     if (isPrivacyMode && isRevealed) {
@@ -196,7 +203,7 @@ export default React.memo(function VirtualCard({ activeCard, lang, isRtl, onRemo
 
       {/* The Premium Virtual Card */}
       <div 
-        className={`group relative w-full aspect-[1.586/1] max-w-md mx-auto mb-6 perspective-1000 ${blurActive ? 'blur-md transition-all duration-300' : 'transition-all duration-300'}`}
+        className={`group relative w-full aspect-[1.586/1] max-w-md mx-auto mb-6 perspective-1000 transition-all duration-300`}
         onMouseDown={handlePressStart}
         onMouseUp={handlePressEnd}
         onMouseLeave={handlePressEnd}
@@ -206,7 +213,7 @@ export default React.memo(function VirtualCard({ activeCard, lang, isRtl, onRemo
         <div className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}>
           
           {/* FRONT FACE */}
-          <div className="absolute inset-0 w-full h-full [backface-visibility:hidden] overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f172a] via-[#1e1b4b] to-[#020617] border border-white/10 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] transform transition-all group-hover:shadow-[0_25px_50px_-12px_rgba(79,70,229,0.3)] cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
+          <div className="absolute inset-0 w-full h-full [backface-visibility:hidden] overflow-hidden rounded-[20px] bg-gradient-to-br from-[#0f172a] via-[#1e1b4b] to-[#020617] border border-white/10 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] transform transition-all group-hover:shadow-[0_25px_50px_-12px_rgba(79,70,229,0.3)] cursor-pointer" onClick={() => isRevealed && setIsFlipped(!isFlipped)}>
             {/* Glow Effects & Patterns */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none transform translate-x-1/4 -translate-y-1/4"></div>
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-600/20 rounded-full blur-3xl pointer-events-none transform -translate-x-1/4 translate-y-1/4"></div>

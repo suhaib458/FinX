@@ -54,9 +54,16 @@ export default function AIInterviewSimulator({ lang }: Props) {
     if (!jobRole) return;
     setIsGenerating(true);
     try {
+      let token = "";
+      if (auth.currentUser) {
+        token = await auth.currentUser.getIdToken();
+      }
       const response = await fetch("/api/interview-generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           lang, 
           jobRole, 
@@ -81,9 +88,16 @@ export default function AIInterviewSimulator({ lang }: Props) {
     setIsScoring(true);
     setMode("result");
     try {
+      let token = "";
+      if (auth.currentUser) {
+        token = await auth.currentUser.getIdToken();
+      }
       const response = await fetch("/api/interview-score", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ lang, questions: completedQs, jobRole, careerField, difficulty })
       });
       const scoreData = await response.json();

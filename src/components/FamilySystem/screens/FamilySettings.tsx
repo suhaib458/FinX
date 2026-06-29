@@ -1,9 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Users, ShieldAlert, CreditCard } from 'lucide-react';
+import ProfilePhotoManager from '../../ProfilePhotoManager';
+import { useFamilyContext } from '../FamilyContext';
 
 export default function FamilySettings() {
   const navigate = useNavigate();
+  const { members, updateMember } = useFamilyContext();
+  const parent = members.find(m => m.role === 'parent');
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary pb-20 font-sans" dir="rtl">
@@ -15,7 +19,20 @@ export default function FamilySettings() {
         <div className="w-9 h-9" />
       </header>
 
-      <div className="px-4 space-y-4 mt-4">
+      <div className="px-4 space-y-6 mt-4">
+        {/* Father Profile Photo Section */}
+        <div className="bg-surface-primary rounded-[1.25rem] border border-border-primary overflow-hidden shadow-sm p-4">
+          <h2 className="font-bold text-base mb-4 text-text-primary">صورة الحساب (الأب)</h2>
+          <ProfilePhotoManager 
+            lang="ar" 
+            onPhotoChange={(url) => {
+              if (parent) {
+                updateMember(parent.id, { avatar: url || undefined });
+              }
+            }}
+          />
+        </div>
+
         <div className="bg-surface-primary rounded-[1.25rem] border border-border-primary overflow-hidden shadow-sm">
           <div 
             onClick={() => navigate('/family/settings/members')}

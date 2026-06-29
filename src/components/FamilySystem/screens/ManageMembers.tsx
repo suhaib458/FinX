@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Plus, X, Loader2 } from 'lucide-react';
 import type { FamilyProfile, FamilyMember } from '../types';
+import { useFamilyContext } from '../FamilyContext';
 
 interface ManageMembersProps {
   family: FamilyProfile;
@@ -9,7 +10,7 @@ interface ManageMembersProps {
 
 export default function ManageMembers({ family }: ManageMembersProps) {
   const navigate = useNavigate();
-  const [members, setMembers] = useState<FamilyMember[]>(family.members);
+  const { members, setMembers } = useFamilyContext();
   const [showAddMember, setShowAddMember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [memberName, setMemberName] = useState('');
@@ -21,7 +22,7 @@ export default function ManageMembers({ family }: ManageMembersProps) {
     
     setLoading(true);
     setTimeout(() => {
-      setMembers(prev => [...prev, {
+      const newMember: FamilyMember = {
         id: `child-${Date.now()}`,
         name: memberName,
         role: 'child',
@@ -31,13 +32,17 @@ export default function ManageMembers({ family }: ManageMembersProps) {
         weeklyLimit: 50,
         isCardFrozen: false,
         score: 0
-      }]);
+      };
+      
+      setMembers(prev => [...prev, newMember]);
+      
       setLoading(false);
       setShowAddMember(false);
       setMemberName('');
       setMemberAge('');
     }, 1000);
   };
+
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary pb-20 font-sans" dir="rtl">

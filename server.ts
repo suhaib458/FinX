@@ -54,6 +54,7 @@ const authChallenges: { [challengeId: string]: string } = {}; // Mapping challen
 const rpName = 'FinX';
 
 const app = express();
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "15mb" }));
 
 const PORT = 3000;
@@ -206,13 +207,15 @@ async function authenticate(req: express.Request, res: express.Response, next: e
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per window
-  message: { error: "Too many requests, please try again later." }
+  message: { error: "Too many requests, please try again later." },
+  validate: false
 });
 
 const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 50, // 50 requests per hour per IP
-  message: { error: "AI rate limit exceeded, please try again later." }
+  message: { error: "AI rate limit exceeded, please try again later." },
+  validate: false
 });
 
 // Quota Check Middleware

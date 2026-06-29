@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, CreditCard, CheckCircle2 } from 'lucide-react';
+import { useFamilyContext } from '../FamilyContext';
 
 export default function TopUpFlow() {
   const navigate = useNavigate();
+  const { setWalletBalance } = useFamilyContext();
   const [amount, setAmount] = useState<string>('');
   const [success, setSuccess] = useState(false);
 
   const handleTopUp = () => {
-    if (!amount) return;
+    const val = parseFloat(amount);
+    if (!val || val <= 0) return;
+    
+    setWalletBalance(prev => prev + val);
+    
     setSuccess(true);
     setTimeout(() => {
       navigate('/family/wallet', { replace: true });

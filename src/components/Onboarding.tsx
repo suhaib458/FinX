@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Sparkles, ArrowRight, ArrowLeft, Briefcase, BookOpen, Rocket, LineChart, PieChart, Upload, Search, Target, CheckCircle2, UserCircle2, Loader2 } from "lucide-react";
 import { translations } from "../translations";
-import { auth, db } from "../lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { auth } from "../lib/firebase";
+import { ProfileService } from "../services/ProfileService";
 
 interface OnboardingProps {
   lang: "ar" | "en";
@@ -68,17 +68,17 @@ export default function Onboarding({ lang, onComplete, setUserRole }: Onboarding
       };
 
       if (auth.currentUser) {
-        await setDoc(doc(db, "users", auth.currentUser.uid, "settings", "onboarding"), payload, { merge: true });
-        
+        let profileBasics = null;
         // Save basic profile info if provided
         if (fullName || universityCompany || majorRole) {
-           await setDoc(doc(db, "users", auth.currentUser.uid, "profile", "basics"), {
+           profileBasics = {
              name: fullName,
              organization: universityCompany,
              title: majorRole,
              updatedAt: new Date().toISOString()
-           }, { merge: true });
+           };
         }
+        await ProfileService.saveOnboardingProfile(auth.currentUser.uid, payload, profileBasics);
       } else {
         localStorage.setItem("finx_onboarding_data", JSON.stringify(payload));
       }

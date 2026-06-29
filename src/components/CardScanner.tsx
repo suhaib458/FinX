@@ -17,6 +17,7 @@ export default function CardScanner({ lang, onSaveCard, onCancel }: CardScannerP
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scannedData, setScannedData] = useState<any | null>(null);
@@ -149,23 +150,38 @@ export default function CardScanner({ lang, onSaveCard, onCancel }: CardScannerP
   }, [scannedData, error, isScanning, scanStep]);
 
   const startCamera = async () => {
+    setError(null);
+    stopCamera();
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" }
       });
       setStream(mediaStream);
+      streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
-    } catch (err) {
-      console.error("Error accessing camera:", err);
-      setError(isRtl ? "تعذر الوصول إلى الكاميرا." : "Could not access camera.");
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError' || err.name === 'NotFoundError') {
+        setError(isRtl ? "تعذر الوصول إلى الكاميرا. يرجى التحقق من الأذونات." : "Could not access camera. Please check permissions.");
+      } else {
+        setError(isRtl ? "تعذر الوصول إلى الكاميرا." : "Could not access camera.");
+      }
     }
   };
 
   const stopCamera = () => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      const mediaStream = videoRef.current.srcObject as MediaStream;
+      mediaStream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
   };
 
@@ -401,11 +417,11 @@ export default function CardScanner({ lang, onSaveCard, onCancel }: CardScannerP
     <div className="flex flex-col h-full bg-black relative pb-safe">
       <canvas ref={canvasRef} className="hidden" />
       
-      <div className="absolute top-0 inset-x-0 p-5 flex justify-between items-center z-20 bg-gradient-to-b from-black/60 to-transparent">
+      <div className="absolute top-0 inset-x-0 p-5 flex justify-between items-center z-40 bg-gradient-to-b from-black/60 to-transparent">
         <h2 className="text-white font-semibold text-lg drop-shadow-md">
           {isRtl ? "مسح البطاقة" : "Scan Card"}
         </h2>
-        <button onClick={onCancel} className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors text-white">
+        <button onClick={onCancel} className="relative z-50 p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors text-white">
           <X className="w-5 h-5" />
         </button>
       </div>

@@ -39,6 +39,7 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
         },
         body: JSON.stringify({ smsText, language: lang })
       });
+      if (!response.ok) throw new Error("API error");
       const data = await response.json();
       
       const now = Date.now();

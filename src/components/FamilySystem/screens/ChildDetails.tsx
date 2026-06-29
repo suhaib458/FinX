@@ -1,24 +1,29 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronRight, Settings, Activity, Ban } from 'lucide-react';
-import type { FamilyProfile } from '../types';
+import { ChevronRight, Settings, Activity, Ban, CheckCircle2 } from 'lucide-react';
+import { useFamilyContext } from '../FamilyContext';
 
-export default function ChildDetails({ family }: { family: FamilyProfile }) {
+export default function ChildDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { members, updateMember } = useFamilyContext();
   
-  const child = family.members.find(m => m.id === id);
+  const child = members.find(m => m.id === id);
 
   if (!child) return null;
+
+  const handleToggleFreeze = () => {
+    updateMember(child.id, { isCardFrozen: !child.isCardFrozen });
+  };
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary pb-20 font-sans" dir="rtl">
       <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-50 bg-bg-primary/80 backdrop-blur-md">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-full bg-surface-primary shadow-sm border border-border-primary hover:bg-bg-secondary transition-colors">
+        <button onClick={() => navigate('/family/parent')} className="p-2 rounded-full bg-surface-primary shadow-sm border border-border-primary hover:bg-bg-secondary transition-colors">
           <ChevronRight className="w-5 h-5" />
         </button>
         <h1 className="text-lg font-bold tracking-tight">{child.name}</h1>
-        <button className="p-2 rounded-full bg-surface-primary shadow-sm border border-border-primary hover:bg-bg-secondary transition-colors">
+        <button onClick={() => navigate('/family/settings/limits')} className="p-2 rounded-full bg-surface-primary shadow-sm border border-border-primary hover:bg-bg-secondary transition-colors">
           <Settings className="w-5 h-5" />
         </button>
       </header>
@@ -43,9 +48,25 @@ export default function ChildDetails({ family }: { family: FamilyProfile }) {
            </div>
         </div>
 
-        <button className="w-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 p-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 border border-rose-200 dark:border-rose-800/50 active:scale-[0.98] transition-transform">
-          <Ban className="w-4 h-4" />
-          تجميد البطاقة
+        <button 
+          onClick={handleToggleFreeze}
+          className={`w-full p-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 border active:scale-[0.98] transition-transform ${
+            child.isCardFrozen 
+              ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border-emerald-200 dark:border-emerald-800/50' 
+              : 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 border-rose-200 dark:border-rose-800/50'
+          }`}
+        >
+          {child.isCardFrozen ? (
+            <>
+              <CheckCircle2 className="w-4 h-4" />
+              تفعيل البطاقة
+            </>
+          ) : (
+            <>
+              <Ban className="w-4 h-4" />
+              تجميد البطاقة
+            </>
+          )}
         </button>
 
         <div>

@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Trash2, Upload } from 'lucide-react';
-import { auth, db, storage } from '../lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { auth } from '../lib/firebase';
 import { translations } from '../translations';
+import { ProfileService } from '../services/ProfileService';
 
-export default function ProfilePhotoManager({ lang }: { lang: 'ar' | 'en' }) {
+export default function ProfilePhotoManager({ lang, uidOverride, onPhotoChange }: { lang: 'ar' | 'en', uidOverride?: string, onPhotoChange?: (url: string | null) => void }) {
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -14,25 +13,30 @@ export default function ProfilePhotoManager({ lang }: { lang: 'ar' | 'en' }) {
   const t = translations[lang] as any;
   const isRtl = lang === 'ar';
 
+  const activeUid = uidOverride || auth.currentUser?.uid;
+
   useEffect(() => {
-    const fetchUserPhoto = async () => {
-      if (!auth.currentUser) return;
-      try {
-        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-        if (userDoc.exists() && userDoc.data().profilePhotoURL) {
-          setPhotoURL(userDoc.data().profilePhotoURL);
-        }
-      } catch (err) {
-        console.error("Error fetching user photo:", err);
-      }
+    let unsubscribe: (() => void) | undefined;
+    if (activeUid && !uidOverride) {
+      unsubscribe = ProfileService.subscribeToProfilePhoto(activeUid, (url) => {
+        setPhotoURL(url);
+        if (onPhotoChange) onPhotoChange(url);
+      });
+    } else if (uidOverride) {
+      // For overrides, try to fetch the initial photo once
+      ProfileService.getProfilePhotoURL(uidOverride).then(url => {
+        setPhotoURL(url);
+      }).catch(() => {});
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
     };
-    fetchUserPhoto();
-  }, []);
+  }, [activeUid, uidOverride, onPhotoChange]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setErrorMsg(null);
     const file = e.target.files?.[0];
-    if (!file || !auth.currentUser) return;
+    if (!file || !activeUid) return;
 
     if (file.size > 25 * 1024 * 1024) {
       setErrorMsg(isRtl ? "حجم الملف الأقصى هو 25 ميجابايت" : "Maximum file size is 25MB");
@@ -86,59 +90,30 @@ export default function ProfilePhotoManager({ lang }: { lang: 'ar' | 'en' }) {
         img.src = URL.createObjectURL(file);
       });
 
-      console.log("Upload Stage 3: Upload started");
-      const storageRef = ref(storage, `profile-images/${auth.currentUser.uid}/avatar.webp`);
-      const uploadTask = uploadBytesResumable(storageRef, processedBlob, { contentType: 'image/webp' });
-
-      uploadTask.on(
-        "state_changed",
-        (snapshot) => {
-          const prog = snapshot.totalBytes > 0 
-              ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100 
-              : 0;
-          console.log(`Upload Stage 4: Upload progress ${prog.toFixed(2)}%`);
+      console.log("Upload Stage 3: Upload started via ProfileService");
+      try {
+        const downloadURL = await ProfileService.uploadProfilePhoto(activeUid, processedBlob, (prog) => {
           setProgress(prog);
-        },
-        (error) => {
-          console.error("Firebase Storage Upload Error:", error);
+        });
+        setProgress(100);
+        setPhotoURL(downloadURL);
+        if (onPhotoChange) onPhotoChange(downloadURL);
+      } catch (error: any) {
+        console.error("Firebase Storage Upload Error:", error);
+        if (error.code === 'storage/unknown') {
+          setErrorMsg("Storage Bucket not found. Please enable Firebase Storage in your console. (404)");
+        } else if (error.code === 'storage/unauthorized') {
+          setErrorMsg("Permission denied. Check your Firestore Storage Rules.");
+        } else {
+          setErrorMsg(error.message || "Failed to upload image. Please try again.");
+        }
+      } finally {
+        setTimeout(() => {
           setUploading(false);
           setProgress(0);
-          if (fileInputRef.current) fileInputRef.current.value = '';
-          
-          if (error.code === 'storage/unknown') {
-            setErrorMsg("Storage Bucket not found. Please enable Firebase Storage in your console. (404)");
-          } else if (error.code === 'storage/unauthorized') {
-            setErrorMsg("Permission denied. Check your Firestore Storage Rules.");
-          } else {
-            setErrorMsg(error.message || "Failed to upload image. Please try again.");
-          }
-        },
-        async () => {
-          console.log("Upload Stage 5: Upload completed");
-          setProgress(100);
-          
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            console.log("Upload Stage 6: Download URL generated", downloadURL);
-            
-            const userRef = doc(db, "users", auth.currentUser!.uid);
-            await setDoc(userRef, { profilePhotoURL: downloadURL }, { merge: true });
-            console.log("Upload Stage 7: Firestore updated with new profilePhotoURL");
-            
-            setPhotoURL(downloadURL);
-          } catch (dbError: any) {
-            console.error("Failed to retrieve URL or save to Firestore", dbError);
-            setErrorMsg(dbError.message || "Failed to save photo URL to database.");
-          }
-
-          setTimeout(() => {
-            setUploading(false);
-            setProgress(0);
-          }, 1000);
-          
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-      );
+        }, 1000);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
 
     } catch (error: any) {
       console.error("Upload Pipeline Error:", error);
@@ -150,13 +125,11 @@ export default function ProfilePhotoManager({ lang }: { lang: 'ar' | 'en' }) {
   };
 
   const handleRemovePhoto = async () => {
-    if (!auth.currentUser) return;
+    if (!activeUid) return;
     try {
-      const storageRef = ref(storage, `profile-images/${auth.currentUser.uid}/avatar`);
-      await deleteObject(storageRef).catch(e => { /* Ignore object not found */ });
-      const userRef = doc(db, "users", auth.currentUser.uid);
-      await updateDoc(userRef, { profilePhotoURL: null });
+      await ProfileService.removeProfilePhoto(activeUid);
       setPhotoURL(null);
+      if (onPhotoChange) onPhotoChange(null);
     } catch (e) {
       console.error(e);
     }

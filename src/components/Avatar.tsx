@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User as UserIcon } from 'lucide-react';
-import { db, auth } from '../lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { ProfileService } from '../services/ProfileService';
 
 interface AvatarProps {
   uid: string;
@@ -15,12 +14,8 @@ export default function Avatar({ uid, className = "w-7 h-7", iconClassName = "w-
   useEffect(() => {
     if (!uid) return;
     
-    const unsubscribe = onSnapshot(doc(db, "users", uid), (docSnap) => {
-      if (docSnap.exists() && docSnap.data().profilePhotoURL) {
-        setPhotoURL(docSnap.data().profilePhotoURL);
-      } else {
-        setPhotoURL(null);
-      }
+    const unsubscribe = ProfileService.subscribeToProfilePhoto(uid, (url) => {
+      setPhotoURL(url);
     });
 
     return () => unsubscribe();

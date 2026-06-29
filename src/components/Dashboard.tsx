@@ -29,6 +29,7 @@ import { FinancialAnalysis, ActiveCard } from "../types";
 import { auth, db } from "../lib/firebase";
 import { doc, getDoc, deleteDoc } from "firebase/firestore";
 import VirtualCard from "./VirtualCard";
+import { ProfileService } from "../services/ProfileService";
 
 interface DashboardProps {
   lang: "ar" | "en";
@@ -67,9 +68,9 @@ export default function Dashboard({
   useEffect(() => {
     const fetchOnboarding = async () => {
       if (auth.currentUser) {
-        const docRef = await getDoc(doc(db, "users", auth.currentUser.uid, "settings", "onboarding"));
-        if (docRef.exists()) {
-          setOnboardingData(docRef.data());
+        const data = await ProfileService.getOnboardingSettings(auth.currentUser.uid);
+        if (data) {
+          setOnboardingData(data);
         }
       } else {
         const localData = localStorage.getItem("finx_onboarding_data");
