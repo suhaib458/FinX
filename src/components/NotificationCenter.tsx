@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Bell, Briefcase, DollarSign, Settings, Clock, AlertCircle, Trash2, MoreVertical, Check, Target, Building2, User, Search, Pin, PinOff, Info, AlertTriangle, ShieldAlert } from "lucide-react";
 import { auth, db } from "../lib/firebase";
-import { subscribeToNotifications, SystemNotification, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications, togglePinNotification } from "../lib/notifications";
+import { NotificationService } from "../services/NotificationService";
+import type { SystemNotification } from "../types";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { useNotifications, useNotificationUnreadCount } from "../contexts/NotificationContext";
 
 interface NotificationCenterProps {
   lang: "ar" | "en";
@@ -14,8 +16,7 @@ type FilterType = "all" | "unread" | "pinned";
 
 export default function NotificationCenter({ lang, setActiveTab }: NotificationCenterProps) {
   const isRtl = lang === "ar";
-  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { notifications, loading } = useNotifications();
   const [activeTab, setActiveTabLocal] = useState<TabType>("all");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -27,42 +28,33 @@ export default function NotificationCenter({ lang, setActiveTab }: NotificationC
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (!auth.currentUser) return;
-    const unsubscribe = subscribeToNotifications(auth.currentUser.uid, (data) => {
-      setNotifications(data);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
   const handleMarkAsRead = async (e: React.MouseEvent, n: SystemNotification) => {
     e.stopPropagation();
     if (!n.id || n.readStatus || !auth.currentUser) return;
-    await markAsRead(auth.currentUser.uid, n.id);
+    await NotificationService.markAsRead(auth.currentUser.uid, n.id);
     setOpenMenuId(null);
   };
   
   const handleMarkAllRead = async () => {
     if (!auth.currentUser) return;
-    await markAllAsRead(auth.currentUser.uid, notifications);
+    await NotificationService.markAllAsRead(auth.currentUser.uid, notifications);
   };
 
   const handleDelete = async (e: React.MouseEvent, n: SystemNotification) => {
     e.stopPropagation();
     if (!n.id || !auth.currentUser) return;
-    await deleteNotification(auth.currentUser.uid, n.id);
+    await NotificationService.deleteNotification(auth.currentUser.uid, n.id);
     setOpenMenuId(null);
   };
 
   const handleDeleteAll = async () => {
     if (!auth.currentUser) return;
-    await deleteAllNotifications(auth.currentUser.uid, notifications);
+    await NotificationService.deleteAllNotifications(auth.currentUser.uid, notifications);
   };
 
   const handleOpenNotification = async (n: any) => {
     if (!n.readStatus && auth.currentUser && n.id && !n.isGroup) {
-      await markAsRead(auth.currentUser.uid, n.id);
+      await NotificationService.markAsRead(auth.currentUser.uid, n.id);
     }
     
     if (n.isGroup) {
@@ -124,7 +116,7 @@ export default function NotificationCenter({ lang, setActiveTab }: NotificationC
   const handlePin = async (e: React.MouseEvent, n: SystemNotification) => {
     e.stopPropagation();
     if (!n.id || !auth.currentUser) return;
-    await togglePinNotification(auth.currentUser.uid, n.id, !!n.isPinned);
+    await NotificationService.togglePinNotification(auth.currentUser.uid, n.id, !!n.isPinned);
     setOpenMenuId(null);
   };
 
@@ -378,7 +370,7 @@ export default function NotificationCenter({ lang, setActiveTab }: NotificationC
     );
   }
 
-  const unreadCount = notifications.filter(n => !n.readStatus).length;
+  const unreadCount = useNotificationUnreadCount();
 
   return (
     <div className={`flex-1 overflow-y-auto bg-bg-primary p-4 lg:p-8 ${isRtl ? "text-right" : "text-left"}`}>

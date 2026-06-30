@@ -29,6 +29,7 @@ import LaunchVideo from "./components/LaunchVideo";
 import WelcomeScreen from "./components/WelcomeScreen";
 import Auth from "./components/Auth";
 import Avatar from "./components/Avatar";
+import { NotificationProvider } from "./contexts/NotificationContext";
 
 import { auth, db } from "./lib/firebase";
 import { onAuthStateChanged, User, signOut } from "firebase/auth";
@@ -53,7 +54,7 @@ import SearchTab from "./components/SearchTab";
 import SavedTab from "./components/SavedTab";
 import AnalyticsTab from "./components/AnalyticsTab";
 import RecommendationsTab from "./components/RecommendationsTab";
-import { getFinancialProfile, saveFinancialProfile } from "./lib/finance";
+import { FinanceService } from "./services/FinanceService";
 import { translations } from "./translations";
 import { FinancialAnalysis, ChatMessage, Transaction, SpendingCategory, ActiveCard } from "./types";
 import { 
@@ -127,10 +128,22 @@ function AppContent() {
 
   // 8. Engagement & Pro State
   const [isPro, setIsPro] = useState<boolean>(false);
-  const addPoints = async (amount: number, reason: string = "App engagement") => {
+  const addPoints = React.useCallback(async (amount: number, reason: string = "App engagement") => {
     if (!user) return;
     await RewardsService.awardPoints(user.uid, amount, isPro, reason);
-  };
+  }, [user, isPro]);
+
+  const handleAICoachAction = React.useCallback(() => addPoints(10), [addPoints]);
+  const clearPendingCoachPrompt = React.useCallback(() => setPendingCoachPrompt(null), []);
+  const handleSendToCoach = React.useCallback((prompt: string) => {
+    setPendingCoachPrompt(prompt);
+    addPoints(20);
+    setActiveTab("coach");
+  }, [addPoints]);
+  const handleNotesAddTransaction = React.useCallback((tx: Transaction) => {
+    handleAddTransaction(tx);
+    addPoints(30);
+  }, [addPoints]);
 
   // Track Firebase Auth State (handled by AuthContext now)
   useEffect(() => {
@@ -141,16 +154,20 @@ function AppContent() {
 
   useEffect(() => {
     let unsubProfile: (() => void) | undefined;
+    let isMounted = true;
     const initializeUserApp = async (currentUser: User) => {
         try {
           const sub = await getUserSubscription(currentUser.uid);
+          if (!isMounted) return;
           const currentIsPro = sub.plan === "premium" || sub.plan === "elite";
           setIsPro(currentIsPro);
 
           const profile = await RewardsService.initializeProfile(currentUser.uid);
+          if (!isMounted) return;
           const { streakUpdated, newStreak } = await RewardsService.processDailyStreak(currentUser.uid, profile);
           
-          const finProfile = await getFinancialProfile(currentUser.uid);
+          const finProfile = await FinanceService.getFinancialProfile(currentUser.uid);
+          if (!isMounted) return;
           if (finProfile) {
             setAnalysis(finProfile);
           }
@@ -158,12 +175,15 @@ function AppContent() {
           if (streakUpdated && newStreak >= 7) {
              await RewardsService.unlockAchievement(currentUser.uid, "7_day_streak", "7-Day Streak", 50, currentIsPro);
           }
+          if (!isMounted) return;
 
           const [onboardingData, activeCardDoc, userDocSnap] = await Promise.all([
             ProfileService.getOnboardingSettings(currentUser.uid),
             getDoc(doc(db, "users", currentUser.uid, "settings", "activeCard")),
             UserRepository.getUserDoc(currentUser.uid)
           ]);
+          
+          if (!isMounted) return;
 
           if (onboardingData) {
              setUserRole(onboardingData.selectedRole || null);
@@ -176,7 +196,7 @@ function AppContent() {
           }
 
           unsubProfile = RewardsService.subscribeToProfile(currentUser.uid, (data) => {
-            setRewardProfile(data);
+            if (isMounted) setRewardProfile(data);
           });
           
           if (!userDocSnap.exists() || !userDocSnap.data()?.welcomeCardSeen) {
@@ -194,6 +214,7 @@ function AppContent() {
     }
     
     return () => {
+      isMounted = false;
       if (unsubProfile) unsubProfile();
     };
   }, [user, isPhoneVerified]);
@@ -201,7 +222,10 @@ function AppContent() {
   // Auto-save Financial Profile when it changes
   useEffect(() => {
     if (user && analysis && analysis.monthlyIncome > 0) {
-      saveFinancialProfile(user.uid, analysis);
+      const timeoutId = setTimeout(() => {
+        FinanceService.saveFinancialProfile(user.uid, analysis);
+      }, 2000);
+      return () => clearTimeout(timeoutId);
     }
   }, [analysis, user]);
 
@@ -247,7 +271,7 @@ function AppContent() {
   }, [lang]);
 
   // Dynamic Transaction Additions (Recalculates totals & scores instantly!)
-  const handleAddTransaction = (newTx: Transaction) => {
+  const handleAddTransaction = React.useCallback((newTx: Transaction) => {
     setAnalysis((prev) => {
       // Append item to existing stack
       const updatedTxList = [newTx, ...prev.transactions];
@@ -305,20 +329,20 @@ function AppContent() {
         categories: finalCategories,
       };
     });
-  };
+  }, []);
 
   // Clear transactional files history
-  const handleClearTransactions = () => {
+  const handleClearTransactions = React.useCallback(() => {
     setAnalysis(lang === "ar" ? perfectProfile : perfectProfileEnglish);
-  };
+  }, [lang]);
 
-  const handleUpdateTransactionCategory = (index: number, newCategory: string) => {
+  const handleUpdateTransactionCategory = React.useCallback((index: number, newCategory: string) => {
     setAnalysis(prev => {
       const newTransactions = [...prev.transactions];
       newTransactions[index] = { ...newTransactions[index], category: newCategory };
       return { ...prev, transactions: newTransactions };
     });
-  };
+  }, []);
 
   // Render proper screen tab view
   const renderActiveScreen = () => {
@@ -335,19 +359,15 @@ function AppContent() {
                  activeConversationId={activeCoachChatId} 
                  setActiveConversationId={setActiveCoachChatId} 
                  analysis={analysis} 
-                 onAction={() => addPoints(10)} 
+                 onAction={handleAICoachAction} 
                  pendingPrompt={pendingCoachPrompt}
-                 clearPendingPrompt={() => setPendingCoachPrompt(null)}
+                 clearPendingPrompt={clearPendingCoachPrompt}
                />;
       case "notes":
         return <FinancialNotes 
            lang={lang} 
-           onSendToCoach={(prompt: string) => {
-             setPendingCoachPrompt(prompt);
-             addPoints(20);
-             setActiveTab("coach");
-           }}
-           onAddTransaction={(tx) => { handleAddTransaction(tx); addPoints(30); }}
+           onSendToCoach={handleSendToCoach}
+           onAddTransaction={handleNotesAddTransaction}
         />;
       case "healthScore":
         return <HealthRatio lang={lang} analysis={analysis} />;
@@ -648,8 +668,8 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
+    <NotificationProvider>
       <AppContent />
-    </AuthProvider>
+    </NotificationProvider>
   );
 }

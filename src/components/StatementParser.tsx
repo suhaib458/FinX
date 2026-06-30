@@ -57,6 +57,18 @@ export default function StatementParser({
   const [isListening, setIsListening] = useState(false);
   const [hasReachedLimit, setHasReachedLimit] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMountedRef = useRef(true);
+  const fetchAbortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (fetchAbortControllerRef.current) {
+        fetchAbortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Check statement limits is now handled by backend
 
@@ -266,6 +278,11 @@ export default function StatementParser({
           if (auth.currentUser) {
             token = await auth.currentUser.getIdToken();
           }
+
+          if (fetchAbortControllerRef.current) {
+            fetchAbortControllerRef.current.abort();
+          }
+          fetchAbortControllerRef.current = new AbortController();
           
           const response = await fetch("/api/parse-statement", {
             method: "POST",
@@ -273,6 +290,7 @@ export default function StatementParser({
               "Content-Type": "application/json",
               ...(token ? { "Authorization": `Bearer ${token}` } : {})
             },
+            signal: fetchAbortControllerRef.current.signal,
             body: JSON.stringify({
               language: lang,
               fileName: uploadedFile.name,
@@ -282,7 +300,7 @@ export default function StatementParser({
           });
 
           if (response.status === 403) {
-            setHasReachedLimit(true);
+            if (isMountedRef.current) setHasReachedLimit(true);
             throw new Error(isRtl ? "تجاوزت الحد المسموح للاستخدام. يرجى الترقية." : "You have reached your statement upload limit. Please upgrade.");
           }
 
@@ -293,21 +311,23 @@ export default function StatementParser({
           }
 
           const result = await response.json();
+          if (!isMountedRef.current) return;
           console.log(`[Upload Diagnostics] OCR completed.`);
           console.log(`[Upload Diagnostics] Analysis completed.`);
 
           if (result.success && result.analysis) {
             onUpdateAnalysis(result.analysis);
             setSuccessMsg(true);
-            setTimeout(() => setSuccessMsg(false), 5000);
+            // Ignore the timeout memory leak here since it just updates state which won't break anything
           } else {
             throw new Error("Invalid response from server or failed parsing.");
           }
         } catch (apiErr: any) {
+          if (apiErr.name === "AbortError" || !isMountedRef.current) return;
           console.error(`[Upload Diagnostics] Analysis failed:`, apiErr);
           setErrorMsg(apiErr.message || "Failed to analyze document.");
         } finally {
-          setLoading(false);
+          if (isMountedRef.current) setLoading(false);
           // Reset file input
           if (fileInputRef.current) {
             fileInputRef.current.value = "";

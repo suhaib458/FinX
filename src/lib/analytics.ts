@@ -1,6 +1,6 @@
 import { db } from "./firebase";
 import { collection, doc, setDoc, query, getDocs, orderBy, where, deleteDoc } from "firebase/firestore";
-import { getFinancialProfile } from "./finance";
+import { FinanceService } from "../services/FinanceService";
 import { getCareerProfile } from "./career";
 import { getInterviewHistory } from "./interview";
 import { getOwnerProjects, getOwnerRequests, getInvestorRequests } from "./projects";
@@ -107,7 +107,7 @@ export const AnalyticsService = {
 
       } else {
         // Finance Focus
-        const finProfile = await getFinancialProfile(uid);
+        const finProfile = await FinanceService.getFinancialProfile(uid);
         
         const monthlyIncome = finProfile?.monthlyIncome || 0;
         let totalExpenses = finProfile?.monthlyExpenses || 0;

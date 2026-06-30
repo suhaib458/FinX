@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { auth, db } from "../lib/firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { createNotification } from "../lib/notifications";
+import { NotificationService } from "../services/NotificationService";
 
 interface PhoneNumberManagerProps {
   lang: "ar" | "en";
@@ -145,7 +145,7 @@ export default function PhoneNumberManager({ lang }: PhoneNumberManagerProps) {
       setPrefs(newPrefs);
       setShowRemoveConfirm(false);
 
-      await createNotification(auth.currentUser!.uid, {
+      await NotificationService.createNotification(auth.currentUser!.uid, {
         title: isRtl ? "تم إزالة رقم الهاتف" : "Phone Number Removed",
         message: isRtl ? "تم إزالة رقم الهاتف الخاص بك ولن نتمكن من تحليل رسائلك." : "Your phone number has been removed. We will no longer analyze your messages.",
         category: "account",
@@ -211,7 +211,7 @@ export default function PhoneNumberManager({ lang }: PhoneNumberManagerProps) {
       setPrefs(newPrefs);
       setMockCodeSent(false);
 
-      await createNotification(auth.currentUser!.uid, {
+      await NotificationService.createNotification(auth.currentUser!.uid, {
         title: isRtl ? "تم تأكيد رقم الهاتف" : "Phone Number Verified",
         message: isRtl ? `تم التحقق من رقم هاتفك بنجاح: ${fullNumber}` : `Your phone number ${fullNumber} has been successfully verified.`,
         category: "account",

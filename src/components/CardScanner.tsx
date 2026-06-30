@@ -28,7 +28,9 @@ export default function CardScanner({ lang, onSaveCard, onCancel }: CardScannerP
   const previousFrameRef = useRef<ImageData | null>(null);
   const stableFramesCountRef = useRef(0);
   const checkIntervalRef = useRef<number | null>(null);
-  
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
+
   // Review form state
   const [cardholderName, setCardholderName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
@@ -39,9 +41,14 @@ export default function CardScanner({ lang, onSaveCard, onCancel }: CardScannerP
   const [balance, setBalance] = useState("");
 
   useEffect(() => {
+    isMountedRef.current = true;
     startCamera();
     return () => {
+      isMountedRef.current = false;
       stopCamera();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
   }, []);
 
@@ -192,6 +199,11 @@ export default function CardScanner({ lang, onSaveCard, onCancel }: CardScannerP
       videoRef.current.pause();
     }
     
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     try {
       let token = "";
       if (auth.currentUser) {
@@ -203,13 +215,16 @@ export default function CardScanner({ lang, onSaveCard, onCancel }: CardScannerP
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ imageBase64: imagesBase64, language: lang })
+        body: JSON.stringify({ imageBase64: imagesBase64, language: lang }),
+        signal: abortControllerRef.current.signal
       });
       
       if (!response.ok) throw new Error("API Error");
       
       const data = await response.json();
       
+      if (!isMountedRef.current) return;
+
       setCardholderName(data.cardholderName || "");
       setCardNumber(data.cardNumber || "");
       setExpiryDate(data.expiryDate || "");
@@ -220,12 +235,13 @@ export default function CardScanner({ lang, onSaveCard, onCancel }: CardScannerP
       
       setScannedData(data);
       stopCamera();
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError' || !isMountedRef.current) return;
       console.error("Scanning failed", err);
       setError(isRtl ? "فشل المسح. يرجى المحاولة مرة أخرى." : "Scan failed. Please try again.");
       if (videoRef.current) videoRef.current.play();
     } finally {
-      setIsScanning(false);
+      if (isMountedRef.current) setIsScanning(false);
     }
   };
 

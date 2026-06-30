@@ -1,6 +1,6 @@
 import { db } from "./firebase";
 import { collection, doc, setDoc, query, getDocs, orderBy, writeBatch, where } from "firebase/firestore";
-import { getFinancialProfile } from "./finance";
+import { FinanceService } from "../services/FinanceService";
 import { getCareerProfile } from "./career";
 import { getInterviewHistory } from "./interview";
 import { getOwnerProjects, getOwnerRequests, getInvestorRequests } from "./projects";
@@ -159,7 +159,7 @@ export const RecommendationsService = {
       }
 
       // Always check finance
-      const finProfile = await getFinancialProfile(uid);
+      const finProfile = await FinanceService.getFinancialProfile(uid);
       if (!finProfile) {
         addRec({
           type: "finance",

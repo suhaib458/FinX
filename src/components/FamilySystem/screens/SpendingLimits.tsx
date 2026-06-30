@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ShieldAlert, Save, CheckCircle, Globe, Gamepad2, CreditCard, ShoppingBag, Landmark } from 'lucide-react';
 import type { FamilyProfile } from '../types';
+import { useFamilyAuth } from '../FamilyContext';
 
 interface SpendingLimitsProps {
   family: FamilyProfile;
@@ -9,16 +10,18 @@ interface SpendingLimitsProps {
 
 export default function SpendingLimits({ family }: SpendingLimitsProps) {
   const navigate = useNavigate();
+  const { isParentAuth } = useFamilyAuth();
   const [selectedChildId, setSelectedChildId] = useState(
     family.members.find(m => m.role === 'child')?.id || ''
   );
 
   useEffect(() => {
-    const isParent = sessionStorage.getItem('parent_auth') === 'true';
-    if (!isParent) {
+    if (!isParentAuth) {
       navigate('/family', { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, isParentAuth]);
+
+  if (!isParentAuth) return null;
   
   const [limits, setLimits] = useState({
     allowGaming: family.spendingRules.allowGaming || false,

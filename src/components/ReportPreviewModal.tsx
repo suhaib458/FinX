@@ -3,7 +3,7 @@ import { Download, RefreshCw, X, ShieldAlert, Sparkles, Target, CheckCircle2, Fi
 import { toJpeg } from "html-to-image";
 import { jsPDF } from "jspdf";
 import { auth } from "../lib/firebase";
-import { createNotification } from "../lib/notifications";
+import { NotificationService } from "../services/NotificationService";
 
 interface ReportPreviewModalProps {
   lang: "ar" | "en";
@@ -19,6 +19,19 @@ export default function ReportPreviewModal({ lang, messages, onClose, userName =
   const [error, setError] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
+  const isMountedRef = useRef(true);
+  const fetchAbortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (fetchAbortControllerRef.current) {
+        fetchAbortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const fetchSummary = async () => {
     setLoading(true);
     setError(null);
@@ -28,20 +41,27 @@ export default function ReportPreviewModal({ lang, messages, onClose, userName =
         token = await auth.currentUser.getIdToken();
       }
       
+      if (fetchAbortControllerRef.current) {
+        fetchAbortControllerRef.current.abort();
+      }
+      fetchAbortControllerRef.current = new AbortController();
+
       const response = await fetch("/api/coach-summary", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
+        signal: fetchAbortControllerRef.current.signal,
         body: JSON.stringify({ messages, language: lang, userName })
       });
       if (!response.ok) throw new Error("Failed to generate summary");
       const data = await response.json();
+      if (!isMountedRef.current) return;
       setReport(data);
 
       if (auth.currentUser) {
-        await createNotification(auth.currentUser.uid, {
+        await NotificationService.createNotification(auth.currentUser.uid, {
           title: isRtl ? "تم إنشاء تقرير جديد" : "New Report Generated",
           message: isRtl ? "تم الانتهاء من إعداد تقرير الاستشارة المالية بنجاح." : "Your financial consultation report has been generated successfully.",
           category: "finance",
@@ -50,9 +70,10 @@ export default function ReportPreviewModal({ lang, messages, onClose, userName =
       }
 
     } catch (err: any) {
+      if (err.name === "AbortError" || !isMountedRef.current) return;
       setError(err.message || "An error occurred");
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   };
 

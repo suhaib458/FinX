@@ -17,7 +17,7 @@ import {
 } from "firebase/auth";
 import { auth, googleSignIn, db } from "../lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
-import { createNotification } from "../lib/notifications";
+import { NotificationService } from "../services/NotificationService";
 import { translations } from "../translations";
 import { useWebAuthn, isRunningInIframe } from "../hooks/useWebAuthn";
 
@@ -94,7 +94,7 @@ export default function Auth({ lang, user, onVerified }: AuthProps) {
       } else {
         const userCred = await signInWithEmailAndPassword(auth, sanitizedEmail, password);
         
-        await createNotification(userCred.user.uid, {
+        await NotificationService.createNotification(userCred.user.uid, {
           title: isRtl ? "تسجيل دخول جديد" : "New Login",
           message: isRtl ? "تم تسجيل الدخول إلى حسابك بنجاح." : "Successfully logged into your account.",
           category: "account",

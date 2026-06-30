@@ -75,3 +75,20 @@ export interface FinNote {
   updatedAt: number;
   userId: string;
 }
+
+export interface SystemNotification {
+  id?: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  category: "finance" | "debt" | "projects" | "career" | "account" | "system";
+  priority?: "critical" | "warning" | "info" | "success";
+  readStatus: boolean;
+  createdAt?: any;
+  relatedEntityId?: string;
+  actionUrl?: string;
+  groupId?: string;
+  fcmMessageId?: string;
+  isPinned?: boolean;
+}

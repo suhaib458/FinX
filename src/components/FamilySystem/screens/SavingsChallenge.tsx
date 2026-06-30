@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, TrendingUp, Gift, Trophy, Activity, CheckCircle2 } from 'lucide-react';
-import { useFamilyContext } from '../FamilyContext';
+import { useFamilyMembers, useFamilyAuth } from '../FamilyContext';
 
 export default function SavingsChallenge() {
   const navigate = useNavigate();
-  const { members, updateMember } = useFamilyContext();
-  const child = members.find(m => m.role === 'child') || members[1];
+  const { members, updateMember } = useFamilyMembers();
+  const { isChildAuth, activeChildId } = useFamilyAuth();
+  const child = members.find(m => m.id === activeChildId) || members.find(m => m.role === 'child');
   
   const [joined, setJoined] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (!isChildAuth) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate, isChildAuth]);
+
+  if (!isChildAuth || !child) return null;
 
   useEffect(() => {
     if (joined && child) {

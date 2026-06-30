@@ -1,17 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Send, CheckCircle2, DollarSign } from 'lucide-react';
-import { useFamilyContext } from '../FamilyContext';
+import { useFamilyMembers, useFamilyRequests, useFamilyAuth } from '../FamilyContext';
 
 export default function RequestMoney() {
   const navigate = useNavigate();
-  const { addRequest, members } = useFamilyContext();
-  const child = members.find(m => m.role === 'child') || members[1];
+  const { members } = useFamilyMembers();
+  const { addRequest } = useFamilyRequests();
+  const { isChildAuth, activeChildId } = useFamilyAuth();
+  const child = members.find(m => m.id === activeChildId) || members.find(m => m.role === 'child');
   
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isChildAuth) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate, isChildAuth]);
+
+  if (!isChildAuth || !child) return null;
 
   const quickAmounts = [1, 2, 5, 10];
 

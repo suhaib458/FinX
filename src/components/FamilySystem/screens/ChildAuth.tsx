@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, KeyRound, User, Loader2, AlertCircle } from 'lucide-react';
+import { useFamilyAuth } from '../FamilyContext';
 
 export default function ChildAuth() {
   const navigate = useNavigate();
@@ -8,6 +9,7 @@ export default function ChildAuth() {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { loginAsChild } = useFamilyAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +21,7 @@ export default function ChildAuth() {
       setLoading(false);
       // In a real app we'd verify the PIN against the child's profile
       if (pin.length >= 4) {
-        sessionStorage.setItem('child_auth', childId);
+        loginAsChild(childId);
         navigate('/family/child');
       } else {
         setError('رمز الدخول غير صحيح. يرجى المحاولة مرة أخرى.');

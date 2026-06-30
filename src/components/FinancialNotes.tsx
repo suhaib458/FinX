@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import SaveButton from "./SaveButton";
 import { translations } from "../translations";
 import { FinNote, Transaction } from "../types";
-import { db, auth } from '../lib/firebase';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { auth } from '../lib/firebase';
+import { NotesService } from '../services/NotesService';
 import { Plus, Search, NotebookText, Trash2, Edit2, X, BrainCircuit, ArrowDownUp, Save, MessageSquareText } from 'lucide-react';
 
 interface NotesProps {
@@ -12,7 +12,7 @@ interface NotesProps {
   onAddTransaction?: (tx: Transaction) => void;
 }
 
-export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }: NotesProps) {
+const FinancialNotes = ({ lang, onSendToCoach, onAddTransaction }: NotesProps) => {
   const t = translations[lang] as any;
   const isRtl = lang === "ar";
   
@@ -31,40 +31,23 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
     setSmsLoading(true);
     try {
       const token = await auth.currentUser.getIdToken();
-      const response = await fetch('/api/parse-sms', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ smsText, language: lang })
-      });
-      if (!response.ok) throw new Error("API error");
-      const data = await response.json();
+      const { newNote, transactionData } = await NotesService.parseSmsAndCreateNote(
+        auth.currentUser.uid,
+        smsText,
+        lang,
+        token
+      );
       
-      const now = Date.now();
-      const newNote = {
-        title: data.title || (isRtl ? 'استخراج رسالة' : 'SMS Extraction'),
-        content: isRtl 
-          ? `تفاصيل المعاملة:\nالمبلغ: ${data.amount} ${data.currency}\nالنوع: ${data.type === 'income' ? 'إيداع/دخل' : 'مشتريات/سحب'}\nالتاجر: ${data.merchant}\nالتاريخ: ${data.date}\nالفئة: ${data.category}`
-          : `Transaction Details:\nAmount: ${data.amount} ${data.currency}\nType: ${data.type}\nMerchant: ${data.merchant}\nDate: ${data.date}\nCategory: ${data.category}`,
-        userId: auth.currentUser.uid,
-        createdAt: now,
-        updatedAt: now
-      };
-      
-      const notesRef = collection(db, "users", auth.currentUser.uid, "notes");
-      const docRef = await addDoc(notesRef, newNote);
-      setNotes([{ id: docRef.id, ...newNote }, ...notes]);
+      setNotes([newNote, ...notes]);
       setSmsText("");
 
-      if (onAddTransaction && typeof data.amount === 'number') {
+      if (onAddTransaction && typeof transactionData.amount === 'number') {
         onAddTransaction({
           date: new Date().toISOString().split('T')[0],
-          desc: data.merchant || data.title || "SMS Auto-Extract",
-          amount: data.amount,
-          type: data.type === 'income' ? 'income' : 'expense',
-          category: data.category || "General"
+          desc: transactionData.merchant || transactionData.title || "SMS Auto-Extract",
+          amount: transactionData.amount,
+          type: transactionData.type === 'income' ? 'income' : 'expense',
+          category: transactionData.category || "General"
         });
       }
 
@@ -91,19 +74,9 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
     setLoading(true);
     setErrorMsg('');
     try {
-      const notesRef = collection(db, "users", auth.currentUser.uid, "notes");
-      // Create index might be required for multiple where + orderby in firestore,
-      // but if we only orderBy it's fine. We filter search client-side for simplicity.
-      const q = query(notesRef, orderBy("updatedAt", sortOrder));
-      const querySnapshot = await getDocs(q);
-      
-      const fetchedNotes: FinNote[] = [];
-      querySnapshot.forEach((document) => {
-        fetchedNotes.push({ id: document.id, ...document.data() } as FinNote);
-      });
+      const fetchedNotes = await NotesService.getNotes(auth.currentUser.uid, sortOrder);
       setNotes(fetchedNotes);
     } catch (error: any) {
-      console.error("Error fetching notes:", error);
       setErrorMsg(error.message || 'Failed to fetch notes.');
     } finally {
       setLoading(false);
@@ -116,38 +89,21 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
     setSaveLoading(true);
     setErrorMsg('');
     try {
-      const now = Date.now();
-      const notesRef = collection(db, "users", auth.currentUser.uid, "notes");
+      const savedNote = await NotesService.saveNote(
+        auth.currentUser.uid,
+        currentNote,
+        editTitle,
+        editContent,
+        isRtl
+      );
 
       if (currentNote) {
-        // Update existing
-        const docRef = doc(notesRef, currentNote.id);
-        await updateDoc(docRef, {
-          title: editTitle,
-          content: editContent,
-          updatedAt: now
-        });
-        
-        setNotes(notes.map(n => 
-          n.id === currentNote.id 
-            ? { ...n, title: editTitle, content: editContent, updatedAt: now }
-            : n
-        ));
+        setNotes(notes.map(n => n.id === currentNote.id ? savedNote : n));
       } else {
-        // Create new
-        const newNoteData = {
-          title: editTitle || (isRtl ? 'ملاحظة بلا عنوان' : 'Untitled Note'),
-          content: editContent,
-          userId: auth.currentUser.uid,
-          createdAt: now,
-          updatedAt: now
-        };
-        const docRef = await addDoc(notesRef, newNoteData);
-        setNotes([{ id: docRef.id, ...newNoteData }, ...notes]);
+        setNotes([savedNote, ...notes]);
       }
       setIsEditing(false);
     } catch (error: any) {
-      console.error("Error saving note:", error);
       setErrorMsg(error.message || 'Failed to save note.');
     } finally {
       setSaveLoading(false);
@@ -158,11 +114,9 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
     if (!auth.currentUser) return;
     setErrorMsg('');
     try {
-      const docRef = doc(db, "users", auth.currentUser.uid, "notes", noteId);
-      await deleteDoc(docRef);
+      await NotesService.deleteNote(auth.currentUser.uid, noteId);
       setNotes(notes.filter(n => n.id !== noteId));
     } catch (error: any) {
-      console.error("Error deleting note:", error);
       setErrorMsg(error.message || 'Failed to delete note.');
     }
   };
@@ -385,5 +339,7 @@ export default function FinancialNotes({ lang, onSendToCoach, onAddTransaction }
 
     </div>
   );
-}
+};
+
+export default React.memo(FinancialNotes);
 

@@ -26,7 +26,7 @@ interface AnalyticsTabProps {
   userRole?: string | null;
 }
 
-export default function AnalyticsTab({ lang, user, userRole }: AnalyticsTabProps) {
+const AnalyticsTab = ({ lang, user, userRole }: AnalyticsTabProps) => {
   const [reports, setReports] = useState<AnalyticsReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -371,4 +371,6 @@ export default function AnalyticsTab({ lang, user, userRole }: AnalyticsTabProps
       )}
     </div>
   );
-}
+};
+
+export default React.memo(AnalyticsTab);

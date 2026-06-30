@@ -5,7 +5,7 @@ import {
   Activity, Sparkles, TrendingUp, Calendar, ArrowUpCircle, Trophy, Flame, Wallet, Coins, Clock, Share2, Save, X, Edit2
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { createNotification } from '../lib/notifications';
+import { NotificationService } from '../services/NotificationService';
 import { auth } from '../lib/firebase';
 
 interface Debt {
@@ -44,7 +44,7 @@ export default function DebtPlanner({ lang }: { lang: "ar" | "en" }) {
     setIsEditing(false);
     
     if (auth.currentUser) {
-      await createNotification(auth.currentUser.uid, {
+      await NotificationService.createNotification(auth.currentUser.uid, {
         title: isRtl ? "تم تحديث خطة الديون" : "Debt Plan Updated",
         message: isRtl ? "تم حفظ التعديلات على خطة سداد الديون الخاصة بك." : "Your debt repayment plan has been successfully updated.",
         category: "debt",

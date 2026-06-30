@@ -54,6 +54,7 @@ export default function ProfilePhotoManager({ lang, uidOverride, onPhotoChange }
       const processedBlob = await new Promise<Blob>((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
+          URL.revokeObjectURL(img.src);
           try {
             const canvas = document.createElement("canvas");
             const size = Math.min(img.width, img.height);
@@ -85,6 +86,7 @@ export default function ProfilePhotoManager({ lang, uidOverride, onPhotoChange }
           }
         };
         img.onerror = () => {
+           URL.revokeObjectURL(img.src);
            reject(new Error("Failed to decode image"));
         };
         img.src = URL.createObjectURL(file);

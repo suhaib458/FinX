@@ -2,26 +2,27 @@ import React, { useEffect } from 'react';
 import { Wallet, Target, TrendingUp, Trophy, ArrowUpRight, ChevronRight, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { FamilyMember } from '../types';
-import { useFamilyContext } from '../FamilyContext';
+import { useFamilyMembers, useFamilyAuth } from '../FamilyContext';
 
-export default function ChildDashboard({ profile: initialProfile }: { profile: FamilyMember }) {
+export default function ChildDashboard() {
   const navigate = useNavigate();
-  const { members } = useFamilyContext();
+  const { members } = useFamilyMembers();
+  const { isChildAuth, activeChildId } = useFamilyAuth();
   
   // Use context member data to ensure reactivity
-  const profile = members.find(m => m.id === initialProfile.id) || initialProfile;
+  const profile = members.find(m => m.id === activeChildId) || members.find(m => m.role === 'child');
 
   useEffect(() => {
     // Simple role validation: Child must have a valid session token
-    if (!sessionStorage.getItem('child_auth')) {
+    if (!isChildAuth) {
       navigate('/family/auth/child', { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, isChildAuth]);
+
+  if (!isChildAuth || !profile) return null;
 
   const remaining = profile.weeklyLimit - profile.spentThisWeek;
   const progress = Math.min((profile.spentThisWeek / profile.weeklyLimit) * 100, 100);
-  
-  if (!sessionStorage.getItem('child_auth')) return null;
 
   return (
     <div className="space-y-5 pb-20 font-sans" dir="rtl">

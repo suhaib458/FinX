@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth);
   };
 
-  const value = {
+  const value = React.useMemo(() => ({
     currentUser,
     isAuthenticated: !!currentUser,
     authLoading,
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     verifyPhone,
     login,
     logout
-  };
+  }), [currentUser, authLoading, isPhoneVerified]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

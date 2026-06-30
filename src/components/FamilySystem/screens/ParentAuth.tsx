@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Fingerprint, Lock, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
+import { useFamilyAuth } from '../FamilyContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function ParentAuth() {
   const navigate = useNavigate();
@@ -10,6 +12,8 @@ export default function ParentAuth() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { loginAsParent } = useFamilyAuth();
+  const { isAuthenticated } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +22,7 @@ export default function ParentAuth() {
     try {
       // Authenticate with Firebase for parent role
       await signInWithEmailAndPassword(auth, email, password);
-      sessionStorage.setItem('parent_auth', 'true');
+      loginAsParent();
       setLoading(false);
       navigate('/family/parent');
     } catch (err: any) {
@@ -29,10 +33,15 @@ export default function ParentAuth() {
   };
 
   const handleBiometric = () => {
-    // Mock biometric
+    if (!isAuthenticated) {
+      setError('يرجى تسجيل الدخول بالبريد الإلكتروني أولاً.');
+      return;
+    }
+    
+    // Mock biometric for demonstration
     setLoading(true);
     setTimeout(() => {
-      sessionStorage.setItem('parent_auth', 'true');
+      loginAsParent();
       setLoading(false);
       navigate('/family/parent');
     }, 1500);

@@ -1,18 +1,25 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Camera, User, Wallet, Target } from 'lucide-react';
-import { useFamilyContext } from '../FamilyContext';
+import { useFamilyMembers, useFamilyAuth } from '../FamilyContext';
 
 import { ProfileService } from '../../../services/ProfileService';
 
 export default function ChildProfile() {
   const navigate = useNavigate();
-  const { members, updateMember } = useFamilyContext();
-  const child = members.find(m => m.role === 'child') || members[1];
+  const { members, updateMember } = useFamilyMembers();
+  const { isChildAuth, activeChildId } = useFamilyAuth();
+  const child = members.find(m => m.id === activeChildId) || members.find(m => m.role === 'child');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  if (!child) return null;
+  useEffect(() => {
+    if (!isChildAuth) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate, isChildAuth]);
+
+  if (!isChildAuth || !child) return null;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

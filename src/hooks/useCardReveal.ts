@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 export function useCardReveal(
   isEmergencyLocked: boolean,
@@ -13,6 +13,12 @@ export function useCardReveal(
   const [revealAttempts, setRevealAttempts] = useState(0);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   const handleHide = useCallback(() => {
     setIsRevealed(false);

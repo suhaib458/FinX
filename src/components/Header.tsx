@@ -12,7 +12,9 @@ import {
   Sparkles
 } from "lucide-react";
 import { User } from "firebase/auth";
-import { subscribeToNotifications, SystemNotification } from "../lib/notifications";
+import { NotificationService } from "../services/NotificationService";
+import type { SystemNotification } from "../types";
+import { useNotificationUnreadCount } from "../contexts/NotificationContext";
 
 interface HeaderProps {
   user: User;
@@ -35,17 +37,7 @@ export default function Header({ user, lang, setLang, activeTab, setActiveTab, a
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
-
-  useEffect(() => {
-    if (!user) return;
-    const unsubscribe = subscribeToNotifications(user.uid, (notes) => {
-      setNotifications(notes);
-    });
-    return () => unsubscribe();
-  }, [user]);
-
-  const unreadCount = notifications.filter(n => !n.readStatus).length;
+  const unreadCount = useNotificationUnreadCount();
 
   const boundaryElement = typeof document !== 'undefined' ? document.getElementById('device-shell') || undefined : undefined;
 

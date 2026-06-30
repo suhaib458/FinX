@@ -32,20 +32,32 @@ export default function AIInterviewSimulator({ lang }: Props) {
   const [result, setResult] = useState<Partial<InterviewSession>>({});
   const [historyData, setHistoryData] = useState<InterviewSession[]>([]);
 
+  const isMountedRef = useRef(true);
+  const fetchAbortControllerRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
+    isMountedRef.current = true;
     const fetchProfile = async () => {
       if (auth.currentUser) {
         const data = await getCareerProfile(auth.currentUser.uid);
+        if (!isMountedRef.current) return;
         if (data) {
           setProfile(data);
           if (data.careerFields?.[0]) setCareerField(data.careerFields[0]);
         }
         const hist = await getInterviewHistory(auth.currentUser.uid);
+        if (!isMountedRef.current) return;
         setHistoryData(hist);
       }
-      setLoadingProfile(false);
+      if (isMountedRef.current) setLoadingProfile(false);
     };
     fetchProfile();
+    return () => {
+      isMountedRef.current = false;
+      if (fetchAbortControllerRef.current) {
+        fetchAbortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   const viewHistory = () => setMode("history");
@@ -58,12 +70,19 @@ export default function AIInterviewSimulator({ lang }: Props) {
       if (auth.currentUser) {
         token = await auth.currentUser.getIdToken();
       }
+
+      if (fetchAbortControllerRef.current) {
+        fetchAbortControllerRef.current.abort();
+      }
+      fetchAbortControllerRef.current = new AbortController();
+
       const response = await fetch("/api/interview-generate", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
+        signal: fetchAbortControllerRef.current.signal,
         body: JSON.stringify({
           lang, 
           jobRole, 
@@ -74,14 +93,17 @@ export default function AIInterviewSimulator({ lang }: Props) {
         })
       });
       const data = await response.json();
+      if (!isMountedRef.current) return;
       if (data.questions) {
         setQuestions(data.questions.map((q: string) => ({ question: q })));
         setMode("interview");
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e.name === "AbortError" || !isMountedRef.current) return;
       console.error(e);
+    } finally {
+      if (isMountedRef.current) setIsGenerating(false);
     }
-    setIsGenerating(false);
   };
 
   const finishInterview = async (completedQs: typeof questions) => {
@@ -92,15 +114,23 @@ export default function AIInterviewSimulator({ lang }: Props) {
       if (auth.currentUser) {
         token = await auth.currentUser.getIdToken();
       }
+
+      if (fetchAbortControllerRef.current) {
+        fetchAbortControllerRef.current.abort();
+      }
+      fetchAbortControllerRef.current = new AbortController();
+
       const response = await fetch("/api/interview-score", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
+        signal: fetchAbortControllerRef.current.signal,
         body: JSON.stringify({ lang, questions: completedQs, jobRole, careerField, difficulty })
       });
       const scoreData = await response.json();
+      if (!isMountedRef.current) return;
       setResult(scoreData);
       
       if (auth.currentUser) {
@@ -119,10 +149,12 @@ export default function AIInterviewSimulator({ lang }: Props) {
           improvements: scoreData.improvements,
         });
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e.name === "AbortError" || !isMountedRef.current) return;
       console.error(e);
+    } finally {
+      if (isMountedRef.current) setIsScoring(false);
     }
-    setIsScoring(false);
   };
 
   if (loadingProfile) {

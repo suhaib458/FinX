@@ -1,23 +1,23 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, Settings, Activity, Ban, CheckCircle2 } from 'lucide-react';
-import { useFamilyContext } from '../FamilyContext';
+import { useFamilyMembers, useFamilyAuth } from '../FamilyContext';
 
 export default function ChildDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { members, updateMember } = useFamilyContext();
+  const { members, updateMember } = useFamilyMembers();
+  const { isParentAuth } = useFamilyAuth();
   
   useEffect(() => {
-    const isParent = sessionStorage.getItem('parent_auth') === 'true';
-    if (!isParent) {
+    if (!isParentAuth) {
       navigate('/family', { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, isParentAuth]);
 
   const child = members.find(m => m.id === id);
 
-  if (!child) return null;
+  if (!isParentAuth || !child) return null;
 
   const handleToggleFreeze = () => {
     updateMember(child.id, { isCardFrozen: !child.isCardFrozen });

@@ -2,6 +2,13 @@ import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, DocumentSnapshot } from 'firebase/firestore';
 
 export class UserRepository {
+  private static userDocListeners: Map<string, {
+    count: number;
+    unsubscribe: () => void;
+    callbacks: Set<(doc: DocumentSnapshot) => void>;
+    lastSnapshot: DocumentSnapshot | null;
+  }> = new Map();
+
   static getUserDocRef(uid: string) {
     return doc(db, 'users', uid);
   }
@@ -43,6 +50,47 @@ export class UserRepository {
   }
 
   static subscribeToUserDoc(uid: string, callback: (doc: DocumentSnapshot) => void) {
-    return onSnapshot(this.getUserDocRef(uid), callback);
+    let listenerState = this.userDocListeners.get(uid);
+
+    if (!listenerState) {
+      const callbacks = new Set<(doc: DocumentSnapshot) => void>();
+      callbacks.add(callback);
+      
+      const unsubscribe = onSnapshot(this.getUserDocRef(uid), (docSnap) => {
+        const state = this.userDocListeners.get(uid);
+        if (state) {
+          state.lastSnapshot = docSnap;
+          state.callbacks.forEach(cb => cb(docSnap));
+        }
+      });
+
+      listenerState = {
+        count: 1,
+        unsubscribe,
+        callbacks,
+        lastSnapshot: null
+      };
+      
+      this.userDocListeners.set(uid, listenerState);
+    } else {
+      listenerState.count += 1;
+      listenerState.callbacks.add(callback);
+      
+      if (listenerState.lastSnapshot) {
+        callback(listenerState.lastSnapshot);
+      }
+    }
+
+    return () => {
+      const state = this.userDocListeners.get(uid);
+      if (state) {
+        state.callbacks.delete(callback);
+        state.count -= 1;
+        if (state.count === 0) {
+          state.unsubscribe();
+          this.userDocListeners.delete(uid);
+        }
+      }
+    };
   }
 }

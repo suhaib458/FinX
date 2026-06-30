@@ -1,12 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Target, CheckCircle2, Lock, Clock } from 'lucide-react';
-import { useFamilyContext } from '../FamilyContext';
+import { useFamilyMembers, useFamilyAuth } from '../FamilyContext';
 
 export default function RewardsTasks() {
   const navigate = useNavigate();
-  const { members, updateMember } = useFamilyContext();
-  const child = members.find(m => m.role === 'child') || members[1];
+  const { members, updateMember } = useFamilyMembers();
+  const { isChildAuth, activeChildId } = useFamilyAuth();
+  const child = members.find(m => m.id === activeChildId) || members.find(m => m.role === 'child');
+
+  useEffect(() => {
+    if (!isChildAuth) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate, isChildAuth]);
+
+  if (!isChildAuth || !child) return null;
 
   const [tasks, setTasks] = useState([
     { id: '1', title: 'تنظيف الغرفة', reward: 2.00, status: 'pending' },

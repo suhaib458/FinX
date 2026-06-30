@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Plus, X, Loader2 } from 'lucide-react';
 import type { FamilyProfile, FamilyMember } from '../types';
-import { useFamilyContext } from '../FamilyContext';
+import { useFamilyMembers, useFamilyAuth } from '../FamilyContext';
 
 interface ManageMembersProps {
   family: FamilyProfile;
@@ -10,18 +10,20 @@ interface ManageMembersProps {
 
 export default function ManageMembers({ family }: ManageMembersProps) {
   const navigate = useNavigate();
-  const { members, setMembers } = useFamilyContext();
+  const { members, setMembers } = useFamilyMembers();
+  const { isParentAuth } = useFamilyAuth();
   const [showAddMember, setShowAddMember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [memberName, setMemberName] = useState('');
   const [memberAge, setMemberAge] = useState('');
 
   useEffect(() => {
-    const isParent = sessionStorage.getItem('parent_auth') === 'true';
-    if (!isParent) {
+    if (!isParentAuth) {
       navigate('/family', { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, isParentAuth]);
+
+  if (!isParentAuth) return null;
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();

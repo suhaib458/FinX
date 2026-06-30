@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Check, X } from 'lucide-react';
-import { useFamilyContext } from '../FamilyContext';
+import { useFamilyRequests, useFamilyAuth } from '../FamilyContext';
 
 export default function Requests() {
   const navigate = useNavigate();
-  const { requests, setRequests } = useFamilyContext();
+  const { requests, setRequests } = useFamilyRequests();
+  const { isParentAuth } = useFamilyAuth();
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const isParent = sessionStorage.getItem('parent_auth') === 'true';
-    if (!isParent) {
+    if (!isParentAuth) {
       navigate('/family', { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, isParentAuth]);
 
   const handleAction = async (id: string, action: 'approved' | 'rejected') => {
     if (processingId) return;
@@ -25,6 +25,8 @@ export default function Requests() {
     setRequests(prev => prev.filter(req => req.id !== id));
     setProcessingId(null);
   };
+
+  if (!isParentAuth) return null;
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary pb-20 font-sans" dir="rtl">

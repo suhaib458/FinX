@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { FamilyProfile } from '../types';
 import { auth } from '../../../lib/firebase';
 import Avatar from '../../Avatar'; // Using existing Avatar component if we need it later, let's just stick to the text one for now or check Task 8
-import { useFamilyContext } from '../FamilyContext';
+import { useFamilyMembers, useFamilyRequests, useFamilyWallet, useFamilyAuth } from '../FamilyContext';
 
 interface ParentDashboardProps {
   family: FamilyProfile;
@@ -12,17 +12,18 @@ interface ParentDashboardProps {
 
 export default function ParentDashboard({ family }: ParentDashboardProps) {
   const navigate = useNavigate();
-  const { requests } = useFamilyContext();
+  const { requests } = useFamilyRequests();
+  const { isParentAuth } = useFamilyAuth();
   const pendingRequests = requests.length;
 
   useEffect(() => {
     // Role validation: Parent must have passed the authentication gateway
-    if (!sessionStorage.getItem('parent_auth')) {
+    if (!isParentAuth) {
       navigate('/family/auth/parent', { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, isParentAuth]);
 
-  if (!sessionStorage.getItem('parent_auth')) return null;
+  if (!isParentAuth) return null;
 
   // Assuming father is first parent or auth.currentUser
   const parentMember = family.members.find(m => m.role === 'parent');

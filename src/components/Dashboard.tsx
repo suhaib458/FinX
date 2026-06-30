@@ -39,13 +39,13 @@ interface DashboardProps {
   activeCard?: ActiveCard | null;
 }
 
-export default function Dashboard({
+const Dashboard = ({
   lang,
   analysis,
   setActiveTab,
   userRole,
   activeCard
-}: DashboardProps) {
+}: DashboardProps) => {
   const t = translations[lang];
   const isRtl = lang === "ar";
   const navigate = useNavigate();
@@ -319,5 +319,7 @@ export default function Dashboard({
       </div>
     </div>
   );
-}
+};
+
+export default React.memo(Dashboard);
 

@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, CreditCard, CheckCircle2 } from 'lucide-react';
-import { useFamilyContext } from '../FamilyContext';
+import { useFamilyWallet, useFamilyAuth } from '../FamilyContext';
 
 export default function TopUpFlow() {
   const navigate = useNavigate();
-  const { setWalletBalance } = useFamilyContext();
+  const { setWalletBalance } = useFamilyWallet();
+  const { isParentAuth } = useFamilyAuth();
   const [amount, setAmount] = useState<string>('');
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    const isParent = sessionStorage.getItem('parent_auth') === 'true';
-    if (!isParent) {
+    if (!isParentAuth) {
       navigate('/family', { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, isParentAuth]);
+
+  if (!isParentAuth) return null;
 
   const handleTopUp = () => {
     const val = parseFloat(amount);

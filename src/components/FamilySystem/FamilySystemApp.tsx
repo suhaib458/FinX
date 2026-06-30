@@ -18,10 +18,10 @@ import RequestMoney from './screens/RequestMoney';
 import RewardsTasks from './screens/RewardsTasks';
 import SavingsChallenge from './screens/SavingsChallenge';
 import DeviceShell from '../DeviceShell';
-import { FamilyProvider, useFamilyContext } from './FamilyContext';
+import { FamilyProvider, useFamilyProfile } from './FamilyContext';
 
 function FamilyRoutes() {
-  const { familyProfile } = useFamilyContext();
+  const { familyProfile } = useFamilyProfile();
 
   return (
     <DeviceShell lang="ar">
@@ -31,7 +31,7 @@ function FamilyRoutes() {
           <Route path="/auth/parent" element={<ParentAuth />} />
           <Route path="/auth/child" element={<ChildAuth />} />
           <Route path="/parent" element={<ParentDashboard family={familyProfile} />} />
-          <Route path="/child" element={<ChildDashboard profile={familyProfile.members[1]} />} />
+          <Route path="/child" element={<ChildDashboard />} />
           
           <Route path="/child/profile" element={<ChildProfile />} />
           <Route path="/child/:id" element={<ChildDetails />} />

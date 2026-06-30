@@ -48,6 +48,7 @@ import { saveCareerProfile, getCareerProfile, CareerProfile } from "../lib/caree
 import ReportPreviewModal from "./ReportPreviewModal";
 import Avatar from "./Avatar";
 import JobResultCard from "./JobResultCard";
+import ChatMessageItem from "./ChatMessageItem";
 import { useAICoachHistory } from "../hooks/useAICoachHistory";
 
 interface AICoachProps {
@@ -70,7 +71,7 @@ declare global {
   }
 }
 
-export default function AICoach({
+const AICoach = ({
   lang,
   messages,
   setMessages,
@@ -80,7 +81,7 @@ export default function AICoach({
   onAction,
   pendingPrompt,
   clearPendingPrompt,
-}: AICoachProps) {
+}: AICoachProps) => {
   const t = translations[lang];
   const isRtl = lang === "ar";
   const [input, setInput] = useState("");
@@ -110,6 +111,20 @@ export default function AICoach({
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  
+  const isMountedRef = useRef(true);
+  const fetchAbortControllerRef = useRef<AbortController | null>(null);
+  
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (fetchAbortControllerRef.current) {
+        fetchAbortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const {
     conversations,
     showHistorySidebar,
@@ -198,13 +213,13 @@ export default function AICoach({
     }
   };
 
-  const copyMessage = async (msg: ChatMessage) => {
+  const copyMessage = React.useCallback(async (msg: ChatMessage) => {
     const success = await copyTextToClipboard(msg.content, msg.id);
     if (success) {
       setCopiedMessageId(msg.id);
       setTimeout(() => setCopiedMessageId(null), 2000);
     }
-  };
+  }, []);
 
   const copySelectedMessages = async () => {
     const textsToCopy = messages
@@ -255,11 +270,11 @@ export default function AICoach({
     }
   };
 
-  const toggleMessageSelection = (id: string) => {
+  const toggleMessageSelection = React.useCallback((id: string) => {
     setSelectedMessages((prev) =>
       prev.includes(id) ? prev.filter((mId) => mId !== id) : [...prev, id],
     );
-  };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -321,8 +336,11 @@ export default function AICoach({
           type: "audio/webm",
         });
         setAudioBlob(audioBlob);
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
+        
+        setAudioUrl((prevUrl) => {
+          if (prevUrl) URL.revokeObjectURL(prevUrl);
+          return URL.createObjectURL(audioBlob);
+        });
       };
 
       mediaRecorder.start();
@@ -358,7 +376,10 @@ export default function AICoach({
 
   const deleteRecording = () => {
     setAudioBlob(null);
-    setAudioUrl(null);
+    setAudioUrl((prevUrl) => {
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      return null;
+    });
     setRecordingTime(0);
     setIsPlayingPreview(false);
     if (audioPlayerRef.current) {
@@ -392,10 +413,18 @@ export default function AICoach({
   // Cleanup
   useEffect(() => {
     return () => {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (audioUrl) URL.revokeObjectURL(audioUrl);
     };
   }, [audioUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
 
   // Auto Scroll
   useEffect(() => {
@@ -548,12 +577,18 @@ export default function AICoach({
             token = await auth.currentUser.getIdToken();
           }
           
+          if (fetchAbortControllerRef.current) {
+            fetchAbortControllerRef.current.abort();
+          }
+          fetchAbortControllerRef.current = new AbortController();
+
           const response = await fetch("/api/coach-stream", {
             method: "POST",
             headers: { 
               "Content-Type": "application/json",
               ...(token ? { "Authorization": `Bearer ${token}` } : {})
             },
+            signal: fetchAbortControllerRef.current.signal,
             body: JSON.stringify({
               messages: slicedMessages,
               language: lang,
@@ -677,8 +712,9 @@ export default function AICoach({
         saveConversation(currentMessages);
         return currentMessages;
       });
-      if (onAction) onAction();
-    } catch (err) {
+      if (onAction && isMountedRef.current) onAction();
+    } catch (err: any) {
+      if (err.name === "AbortError" || !isMountedRef.current) return;
       console.error("AI Coach Fetch error:", err);
       // Outer catch blocks errors that happen before network request
       const coachMsgId = (Date.now() + 1).toString();
@@ -699,7 +735,7 @@ export default function AICoach({
       setMessages(messagesWithFallback);
       saveConversation(messagesWithFallback);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   };
 
@@ -722,7 +758,7 @@ export default function AICoach({
 
   // Save conversation explicitly when messages are added to prevent loops
 
-  const getMarkdownComponents = (msg: ChatMessage) => ({
+  const getMarkdownComponents = React.useCallback((msg: ChatMessage) => ({
     code: ({ node, inline, className, children, ...props }: any) => {
       const match = /language-(\w+)/.exec(className || "");
       const isJobOrJson = match && (match[1] === "job" || match[1] === "json");
@@ -957,7 +993,7 @@ export default function AICoach({
         {props.children}
       </h3>
     ),
-  });
+  }), [isRtl]);
 
   return (
     <div
@@ -1125,151 +1161,24 @@ export default function AICoach({
 
         {/* Main scrolling Chat container */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 min-w-0">
-          {messages.map((msg) => {
-            const isUser = msg.role === "user";
-            const isSelected = selectedMessages.includes(msg.id);
-            return (
-              <div
-                key={msg.id}
-                tabIndex={0}
-                className={`flex w-full group items-start gap-2 focus:outline-none ${isUser ? (isRtl ? "justify-end flex-row" : "justify-end flex-row-reverse") : "justify-start"}`}
-              >
-                {selectionMode && msg.id !== "greet" && (
-                  <button
-                    onClick={() => toggleMessageSelection(msg.id)}
-                    className={`mt-2 shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${isSelected ? "bg-indigo-500 border-indigo-500" : "border-slate-600 bg-transparent"}`}
-                  >
-                    {isSelected && <Check className="w-3 h-3 text-text-primary" />}
-                  </button>
-                )}
-
-                <div
-                  className={`flex gap-3 max-w-[85%] sm:max-w-[75%] ${isSelected ? "opacity-80" : ""}`}
-                >
-                  {/* Profile Avatar indicator */}
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
-                      isUser
-                        ? "bg-surface-primary border-none text-indigo-600 dark:text-indigo-400"
-                        : "bg-indigo-950/30 border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
-                    }`}
-                  >
-                    {isUser && auth.currentUser ? (
-                      <Avatar
-                        uid={auth.currentUser.uid}
-                        className="w-8 h-8"
-                        iconClassName="w-4 h-4"
-                      />
-                    ) : isUser ? (
-                      <User className="w-4 h-4" />
-                    ) : (
-                      <Bot className="w-4.5 h-4.5" />
-                    )}
-                  </div>
-
-                  {/* Text Bubble */}
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <div
-                      className={`p-3.5 rounded-2xl text-[12.5px] shadow-sm leading-relaxed break-words select-text selection:bg-indigo-500/30 selection:text-text-primary ${
-                        isUser
-                          ? "bg-indigo-600 text-white rounded-tr-none border border-indigo-500 shadow-md shadow-indigo-500/10"
-                          : "bg-surface-primary text-text-primary border border-border-primary rounded-tl-none markdown-container"
-                      }`}
-                    >
-                      {isUser ? (
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
-                      ) : msg.content.includes("CV analysis in progress") || msg.content.includes("جاري تحليل السيرة الذاتية") ? (
-                        <div className="flex items-center gap-3 py-1">
-                          <div className="flex gap-1.5 h-4 items-center pl-1">
-                            <span className="w-1 bg-indigo-500 h-full animate-bounce rounded-full" style={{ animationDelay: "0ms" }}></span>
-                            <span className="w-1 bg-indigo-500 h-3/4 animate-bounce rounded-full" style={{ animationDelay: "150ms" }}></span>
-                            <span className="w-1 bg-indigo-500 h-full animate-bounce rounded-full" style={{ animationDelay: "300ms" }}></span>
-                          </div>
-                          <span className="font-semibold text-indigo-600 dark:text-indigo-400 font-mono tracking-tight text-[13px]">{msg.content}</span>
-                        </div>
-                      ) : (
-                        <Markdown
-                          remarkPlugins={[remarkGfm]}
-                          components={getMarkdownComponents(msg)}
-                        >
-                          {(() => {
-                             let content = msg.content;
-                             // Auto-fence naked JSON objects assuming they are meant to be parsed
-                             if (!content.includes('```')) {
-                                content = content.replace(/(\{\s*"title"[\s\S]*?\})/g, "\n\n```json\n$1\n```\n\n");
-                                content = content.replace(/(\[\s*\{\s*"title"[\s\S]*?\}\s*\])/g, "\n\n```json\n$1\n```\n\n");
-                             }
-                             return content;
-                          })()}
-                        </Markdown>
-                      )}
-                    </div>
-                    <div
-                      className={`flex items-center gap-2 text-[8.5px] text-text-primary dark:text-text-secondary block ${isUser ? "justify-end" : "justify-start"}`}
-                    >
-                      <span>{msg.timestamp}</span>
-                      {copiedMessageId === msg.id && (
-                        <span className="text-accent-green flex items-center gap-0.5">
-                          <Check className="w-3 h-3" />{" "}
-                          {isRtl ? "تم النسخ" : "Copied"}
-                        </span>
-                      )}
-                    </div>
-                    {msg.isError && msg.rawPrompt !== undefined && (
-                      <div className={`flex ${isRtl ? "justify-start" : "justify-start"}`}>
-                        <button
-                          onClick={() => {
-                            if (msg.rawAttachments) {
-                              setAttachments(msg.rawAttachments);
-                            }
-                            handleSend(msg.rawPrompt || "");
-                          }}
-                          className="mt-1.5 flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors cursor-pointer"
-                        >
-                          <RefreshCcw className="w-3.5 h-3.5" />
-                          {isRtl ? "إعادة المحاولة" : "Retry"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Hover Actions (Desktop) / Visible on selection mode */}
-                {!selectionMode && (
-                  <div
-                    className={`opacity-0 group-hover:opacity-100 group-focus:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5 mt-2 ${isRtl ? "flex-row-reverse" : "flex-row"}`}
-                  >
-                    <button
-                      onClick={() => {
-                        setSelectionMode(true);
-                        toggleMessageSelection(msg.id);
-                      }}
-                      className="p-1.5 rounded-md hover:bg-bg-secondary text-text-primary dark:text-text-secondary hover:text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
-                      title={isRtl ? "تحديد" : "Select"}
-                    >
-                      <CheckSquare className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => copyMessage(msg)}
-                      className="p-1.5 rounded-md hover:bg-bg-secondary text-text-primary dark:text-text-secondary hover:text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
-                      title={isRtl ? "نسخ" : "Copy"}
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                    {msg.id !== "greet" && (
-                      <button
-                        onClick={() => setMessageToDelete(msg.id)}
-                        className="p-1.5 rounded-md hover:bg-bg-secondary text-text-primary dark:text-text-secondary hover:text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
-                        title={isRtl ? "حذف" : "Delete"}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {messages.map((msg) => (
+            <ChatMessageItem
+              key={msg.id}
+              msg={msg}
+              isUser={msg.role === "user"}
+              isSelected={selectedMessages.includes(msg.id)}
+              isRtl={isRtl}
+              selectionMode={selectionMode}
+              copiedMessageId={copiedMessageId}
+              toggleMessageSelection={toggleMessageSelection}
+              copyMessage={copyMessage}
+              setMessageToDelete={setMessageToDelete}
+              handleSend={handleSend}
+              setAttachments={setAttachments}
+              getMarkdownComponents={getMarkdownComponents}
+              setSelectionMode={setSelectionMode}
+            />
+          ))}
 
           {/* Loading Bubble */}
           {loading && (
@@ -1647,4 +1556,6 @@ export default function AICoach({
       </div>
     </div>
   );
-}
+};
+
+export default React.memo(AICoach);
