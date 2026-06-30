@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Camera, User, Wallet, Target, Trophy, TrendingUp } from 'lucide-react';
+import { ChevronRight, Camera, User, Wallet, Target } from 'lucide-react';
 import { useFamilyContext } from '../FamilyContext';
 
 import { ProfileService } from '../../../services/ProfileService';
@@ -94,27 +94,11 @@ export default function ChildProfile() {
            </div>
 
            <div className="bg-surface-primary p-4 rounded-[1.25rem] border border-border-primary shadow-sm flex flex-col items-center">
-             <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 flex items-center justify-center mb-2">
-               <Trophy className="w-5 h-5" />
-             </div>
-             <div className="text-xs text-text-secondary mb-1">النقاط والمكافآت</div>
-             <div className="text-lg font-black">{child.score} نقطة</div>
-           </div>
-
-           <div className="bg-surface-primary p-4 rounded-[1.25rem] border border-border-primary shadow-sm flex flex-col items-center">
              <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 flex items-center justify-center mb-2">
                <Target className="w-5 h-5" />
              </div>
              <div className="text-xs text-text-secondary mb-1">المهام المنجزة</div>
              <div className="text-lg font-black">12 مهمة</div>
-           </div>
-
-           <div className="bg-surface-primary p-4 rounded-[1.25rem] border border-border-primary shadow-sm flex flex-col items-center">
-             <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center mb-2">
-               <TrendingUp className="w-5 h-5" />
-             </div>
-             <div className="text-xs text-text-secondary mb-1">أيام التوفير (Streak)</div>
-             <div className="text-lg font-black">5 أيام 🔥</div>
            </div>
         </div>
 

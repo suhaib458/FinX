@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Check, X } from 'lucide-react';
 import { useFamilyContext } from '../FamilyContext';
@@ -7,6 +7,13 @@ export default function Requests() {
   const navigate = useNavigate();
   const { requests, setRequests } = useFamilyContext();
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const isParent = sessionStorage.getItem('parent_auth') === 'true';
+    if (!isParent) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate]);
 
   const handleAction = async (id: string, action: 'approved' | 'rejected') => {
     if (processingId) return;

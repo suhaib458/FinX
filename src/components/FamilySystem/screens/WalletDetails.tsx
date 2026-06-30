@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ArrowDownRight, ArrowUpRight, X } from 'lucide-react';
 import { useFamilyContext } from '../FamilyContext';
@@ -7,10 +7,19 @@ export default function WalletDetails() {
   const navigate = useNavigate();
   const { familyProfile, walletBalance, setWalletBalance, members, updateMember } = useFamilyContext();
   
+  useEffect(() => {
+    const isParent = sessionStorage.getItem('parent_auth') === 'true';
+    if (!isParent) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate]);
+
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferAmount, setTransferAmount] = useState('');
   const [selectedChild, setSelectedChild] = useState(members.find(m => m.role === 'child')?.id || '');
   const [error, setError] = useState('');
+
+  if (sessionStorage.getItem('parent_auth') !== 'true') return null;
 
   const transactions = [
     { id: '1', title: 'إيداع من البطاقة البنكية', amount: 50.00, type: 'deposit', date: 'اليوم, 10:30 ص' },

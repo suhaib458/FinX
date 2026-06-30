@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ShieldAlert, Save, CheckCircle, Globe, Gamepad2, CreditCard, ShoppingBag, Landmark } from 'lucide-react';
 import type { FamilyProfile } from '../types';
@@ -12,6 +12,13 @@ export default function SpendingLimits({ family }: SpendingLimitsProps) {
   const [selectedChildId, setSelectedChildId] = useState(
     family.members.find(m => m.role === 'child')?.id || ''
   );
+
+  useEffect(() => {
+    const isParent = sessionStorage.getItem('parent_auth') === 'true';
+    if (!isParent) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate]);
   
   const [limits, setLimits] = useState({
     allowGaming: family.spendingRules.allowGaming || false,

@@ -135,22 +135,24 @@ export default function Header({ user, lang, setLang, activeTab, setActiveTab, a
             <button 
               ref={refs.setReference}
               onClick={() => setMenuOpen(!menuOpen)}
-              className={`group relative p-2.5 sm:px-4 sm:py-2.5 rounded-full transition-all duration-300 active:scale-[0.95] focus:outline-none flex items-center justify-center gap-2 overflow-hidden ${
+              className={`group relative p-2.5 sm:px-4 sm:py-2.5 rounded-full transition-all duration-300 active:scale-[0.95] focus:outline-none flex items-center justify-center gap-2 ${
                 menuOpen 
                   ? 'bg-white dark:bg-white/10 text-indigo-600 dark:text-indigo-400 shadow-sm' 
                   : 'text-text-primary hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
               }`}
               title={lang === "ar" ? "الإعدادات" : "Menu & Settings"}
             >
-              <SettingsIcon className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${menuOpen ? 'rotate-90 scale-105' : 'group-hover:scale-110 group-hover:rotate-45'}`} />
+              <div className="relative flex items-center justify-center">
+                <SettingsIcon className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${menuOpen ? 'rotate-90 scale-105' : 'group-hover:scale-110 group-hover:rotate-45'}`} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-sm ring-[1.5px] ring-white dark:ring-[#1e293b]">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </div>
               <span className={`text-sm font-semibold hidden sm:block tracking-wide transition-colors duration-300 ${menuOpen ? 'text-indigo-600 dark:text-indigo-400' : 'group-hover:text-indigo-600 dark:group-hover:text-indigo-300'}`}>
                 {lang === "ar" ? "" : "Menu"}
               </span>
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-[0_0_8px_rgba(244,63,94,0.6)]">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
               {menuOpen && (
                 <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
               )}

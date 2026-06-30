@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, CreditCard, Plus, X, Loader2, Sparkles, Wifi, ScanLine } from 'lucide-react';
 import { useFamilyContext } from '../FamilyContext';
@@ -8,6 +8,13 @@ export default function LinkedCards() {
   const navigate = useNavigate();
   const { cards, addCard } = useFamilyContext();
   
+  useEffect(() => {
+    const isParent = sessionStorage.getItem('parent_auth') === 'true';
+    if (!isParent) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate]);
+
   const [showAddCard, setShowAddCard] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [loading, setLoading] = useState(false);

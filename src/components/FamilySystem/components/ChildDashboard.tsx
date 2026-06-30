@@ -42,7 +42,7 @@ export default function ChildDashboard({ profile: initialProfile }: { profile: F
 
       <div className="px-4 space-y-6">
         {/* Wallet Summary */}
-        <div className={`bg-gradient-to-br from-slate-900 to-indigo-950 dark:from-slate-800 dark:to-slate-900 text-white p-6 rounded-[1.5rem] shadow-xl relative overflow-hidden ${profile.isCardFrozen ? 'opacity-75 grayscale-[50%]' : 'cursor-pointer active:scale-[0.98] transition-transform'}`} onClick={() => !profile.isCardFrozen && navigate('/family/wallet/transactions')}>
+        <div className={`bg-gradient-to-br from-slate-900 to-indigo-950 dark:from-slate-800 dark:to-slate-900 text-white p-6 rounded-[1.5rem] shadow-xl relative overflow-hidden ${profile.isCardFrozen ? 'opacity-75 grayscale-[50%]' : 'transition-transform'}`}>
           {profile.isCardFrozen && (
             <div className="absolute inset-0 bg-rose-900/40 backdrop-blur-[2px] z-20 flex items-center justify-center">
               <div className="bg-rose-500 text-white font-bold px-4 py-2 rounded-full flex items-center gap-2 shadow-lg">

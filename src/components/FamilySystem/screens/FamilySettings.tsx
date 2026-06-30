@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Users, ShieldAlert, CreditCard } from 'lucide-react';
 import ProfilePhotoManager from '../../ProfilePhotoManager';
@@ -8,6 +8,13 @@ export default function FamilySettings() {
   const navigate = useNavigate();
   const { members, updateMember } = useFamilyContext();
   const parent = members.find(m => m.role === 'parent');
+
+  useEffect(() => {
+    const isParent = sessionStorage.getItem('parent_auth') === 'true';
+    if (!isParent) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary pb-20 font-sans" dir="rtl">

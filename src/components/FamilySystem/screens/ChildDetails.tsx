@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, Settings, Activity, Ban, CheckCircle2 } from 'lucide-react';
 import { useFamilyContext } from '../FamilyContext';
@@ -8,6 +8,13 @@ export default function ChildDetails() {
   const { id } = useParams();
   const { members, updateMember } = useFamilyContext();
   
+  useEffect(() => {
+    const isParent = sessionStorage.getItem('parent_auth') === 'true';
+    if (!isParent) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate]);
+
   const child = members.find(m => m.id === id);
 
   if (!child) return null;

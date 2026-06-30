@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Plus, X, Loader2 } from 'lucide-react';
 import type { FamilyProfile, FamilyMember } from '../types';
@@ -15,6 +15,13 @@ export default function ManageMembers({ family }: ManageMembersProps) {
   const [loading, setLoading] = useState(false);
   const [memberName, setMemberName] = useState('');
   const [memberAge, setMemberAge] = useState('');
+
+  useEffect(() => {
+    const isParent = sessionStorage.getItem('parent_auth') === 'true';
+    if (!isParent) {
+      navigate('/family', { replace: true });
+    }
+  }, [navigate]);
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
